@@ -26,7 +26,6 @@ if %ERRORLEVEL% neq 0 (
 
 echo.
 echo Build complete! You can now run:
-cd ..
-echo   CLI: .\Tools\IssueRunner.Cli\bin\Release\net10.0\IssueRunner.Cli.exe --help
-echo   GUI: .Tools\IssueRunner.Gui\bin\Release\net10.0\IssueRunner.Gui.exe
+echo   CLI: .\IssueRunner.Cli\bin\Release\net10.0\IssueRunner.Cli.exe --help
+echo   GUI: .\IssueRunner.Gui\bin\Release\net10.0\IssueRunner.Gui.exe
 echo.
