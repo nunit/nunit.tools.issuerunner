@@ -1040,15 +1040,11 @@ public class MainViewModelTests : HeadlessTestBase
         }
         await Task.Delay(200); // Additional delay to ensure all counts are set
 
-        // Assert - Check that SummaryText includes all status counts
+        // Assert - Verify SummaryText contains repository info (status counts are no longer in SummaryText)
         var summaryText = viewModel.SummaryText;
         Assert.That(summaryText, Is.Not.Null, "SummaryText should not be null");
-        Assert.That(summaryText, Does.Contain("Passed: 1"), "SummaryText should contain Passed count");
-        Assert.That(summaryText, Does.Contain("Failed: 1"), "SummaryText should contain Failed count");
-        Assert.That(summaryText, Does.Contain("Skipped: 1"), "SummaryText should contain Skipped count");
-        Assert.That(summaryText, Does.Contain("Not Restored: 1"), "SummaryText should contain Not Restored count");
-        Assert.That(summaryText, Does.Contain("Not Compiling: 1"), "SummaryText should contain Not Compiling count");
-        Assert.That(summaryText, Does.Contain("Not Tested: 1"), "SummaryText should contain Not Tested count");
+        Assert.That(summaryText, Does.Contain("Repository:"), "SummaryText should contain repository info");
+        Assert.That(summaryText, Does.Contain("Issues:"), "SummaryText should contain issues count");
 
         // Verify total equals total issue count (6 issues)
         var totalCount = viewModel.PassedCount + viewModel.FailedCount + viewModel.SkippedCount +

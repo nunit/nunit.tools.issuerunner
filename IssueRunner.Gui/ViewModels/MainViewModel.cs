@@ -53,8 +53,7 @@ public class MainViewModel : ViewModelBase
             SyncToFoldersCommand = ReactiveCommand.CreateFromTask(() => SyncToFoldersAsync());
             SyncToFoldersCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Sync to Folders exception:", ex));
 
-            ResetPackagesCommand = ReactiveCommand.CreateFromTask(ResetPackagesAsync);
-            ResetPackagesCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Reset Packages exception:", ex));
+            // ResetPackagesCommand is now handled in IssueListViewModel
 
             GenerateReportCommand = ReactiveCommand.CreateFromTask(GenerateReportAsync);
             GenerateReportCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Generate Report exception:", ex));
@@ -70,6 +69,9 @@ public class MainViewModel : ViewModelBase
 
             ShowOptionsCommand = ReactiveCommand.CreateFromTask(ShowOptionsAsync);
             ShowOptionsCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Show Options exception:", ex));
+
+            SetBaselineCommand = ReactiveCommand.CreateFromTask(SetBaselineAsync);
+            SetBaselineCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Set Baseline exception:", ex));
 
             ListFoldersWithoutMetadataCommand = ReactiveCommand.Create(ListFoldersWithoutMetadata);
 
@@ -317,12 +319,13 @@ public class MainViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> CancelTestsCommand { get; }
     public ReactiveCommand<Unit, Unit> SyncFromGitHubCommand { get; }
     public ReactiveCommand<Unit, Unit> SyncToFoldersCommand { get; }
-    public ReactiveCommand<Unit, Unit> ResetPackagesCommand { get; }
+    // ResetPackagesCommand moved to IssueListViewModel
     public ReactiveCommand<Unit, Unit> GenerateReportCommand { get; }
     public ReactiveCommand<Unit, Unit> CheckRegressionsCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowTestStatusCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowIssueListCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowOptionsCommand { get; }
+    public ReactiveCommand<Unit, Unit> SetBaselineCommand { get; }
     public ReactiveCommand<Unit, Unit> ListFoldersWithoutMetadataCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearLogCommand { get; }
 
@@ -498,6 +501,7 @@ public class MainViewModel : ViewModelBase
                 viewModel.SetRunTestsCallback(async (issueNumbers) => await RunFilteredTestsAsync(issueNumbers));
                 viewModel.SetShowOptionsCallback(async () => await ShowOptionsAsync());
                 viewModel.SetSyncFromGitHubCommand(SyncFromGitHubCommand);
+                viewModel.SetResetPackagesCallback(async (issueNumbers) => await ResetPackagesAsync(issueNumbers));
                 viewModel.SetRepositoryBaseUrl(result.RepositoryBaseUrl);
             });
         }
@@ -847,11 +851,40 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task ResetPackagesAsync()
+    private async Task ResetPackagesAsync(List<int> issueNumbers)
     {
-        AppendLog("Reset Packages command not yet fully implemented.");
-        // TODO: Show dialog for issue selection, then execute
-        await Task.CompletedTask;
+        try
+        {
+            if (!ValidateRepository())
+            {
+                return;
+            }
+
+            if (issueNumbers == null || issueNumbers.Count == 0)
+            {
+                AppendLog("No issues selected to reset.");
+                return;
+            }
+
+            AppendLog($"Resetting packages for {issueNumbers.Count} issue(s)...");
+
+            await ExecuteCommandWithConsoleCaptureAsync(async () =>
+            {
+                var cmd = _services.GetRequiredService<ResetPackagesCommand>();
+                return await cmd.ExecuteAsync(
+                    _environmentService.Root,
+                    issueNumbers,
+                    LogVerbosity.Normal,
+                    CancellationToken.None);
+            },
+            exitCode => AppendLog(exitCode == 0
+                ? "Packages reset successfully."
+                : $"Package reset completed with errors (exit code: {exitCode})."));
+        }
+        catch (Exception ex)
+        {
+            LogDetailedException("ResetPackagesAsync", ex);
+        }
     }
 
     private async Task GenerateReportAsync()

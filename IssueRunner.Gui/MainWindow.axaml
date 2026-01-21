@@ -173,17 +173,11 @@
                                    Foreground="White"
                                    IsVisible="{Binding IsRunningTests}"
                                    Padding="12,8"/>
-                            <Button Content="Reset Packages" 
-                                   Command="{Binding ResetPackagesCommand}"
-                                   IsEnabled="{Binding !IsRunningTests}"/>
                             <Button Content="Generate Report" 
                                    Command="{Binding GenerateReportCommand}"
                                    IsEnabled="{Binding !IsRunningTests}"/>
-                            <Button Content="Check Regressions" 
-                                   Command="{Binding CheckRegressionsCommand}"
-                                   IsEnabled="{Binding !IsRunningTests}"/>
-                            <Button Content="Test Status" 
-                                   Command="{Binding ShowTestStatusCommand}"
+                            <Button Content="Set Baseline" 
+                                   Command="{Binding SetBaselineCommand}"
                                    IsEnabled="{Binding !IsRunningTests}"/>
                         </StackPanel>
                     </StackPanel>

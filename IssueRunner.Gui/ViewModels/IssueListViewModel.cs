@@ -16,6 +16,7 @@ public class IssueListViewModel : ViewModelBase
     private readonly ObservableCollection<IssueListItem> _filteredIssues = new();
     private Func<List<int>, Task>? _runTestsCallback;
     private Func<Task>? _showOptionsCallback;
+    private Func<List<int>, Task>? _resetPackagesCallback;
     private string _repositoryBaseUrl = "";
     private Dictionary<string, ChangeType> _issueChanges = new();
 
@@ -50,6 +51,13 @@ public class IssueListViewModel : ViewModelBase
         {
             IssueNumbers = "";
         });
+        
+        // ResetPackagesCommand can execute whenever there is at least one issue in the filtered list or issue numbers are specified.
+        ResetPackagesCommand = ReactiveCommand.CreateFromTask(
+            ResetPackagesAsync,
+            this.WhenAnyValue(x => x.FilteredIssueCount, x => x.IssueNumbers)
+                .Select(t => t.Item1 > 0 || !string.IsNullOrWhiteSpace(t.Item2)),
+            RxApp.MainThreadScheduler);
     }
 
     public ReactiveCommand<Unit, Unit> RunTestsCommand { get; }
@@ -57,6 +65,7 @@ public class IssueListViewModel : ViewModelBase
     public ReactiveCommand<int, Unit> OpenIssueCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearIssueNumbersCommand { get; }
     public ReactiveCommand<Unit, Unit> ToggleDiffCommand { get; }
+    public ReactiveCommand<Unit, Unit> ResetPackagesCommand { get; }
 
     public ReactiveCommand<Unit, Unit>? SyncFromGitHubCommand
     {
@@ -143,6 +152,11 @@ public class IssueListViewModel : ViewModelBase
     public void SetSyncFromGitHubCommand(ReactiveCommand<Unit, Unit> command)
     {
         SyncFromGitHubCommand = command;
+    }
+
+    public void SetResetPackagesCallback(Func<List<int>, Task> callback)
+    {
+        _resetPackagesCallback = callback;
     }
 
     public void SetRepositoryBaseUrl(string baseUrl)
@@ -240,6 +254,50 @@ public class IssueListViewModel : ViewModelBase
         }
 
         await _showOptionsCallback();
+    }
+
+    private async Task ResetPackagesAsync()
+    {
+        if (_resetPackagesCallback == null)
+        {
+            return;
+        }
+
+        List<int> issueNumbers;
+        
+        // If IssueNumbers is specified, use that; otherwise use filtered issues
+        if (!string.IsNullOrWhiteSpace(IssueNumbers))
+        {
+            // Parse issue numbers from the text box
+            var numbers = new List<int>();
+            var parts = IssueNumbers.Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                if (int.TryParse(part.Trim(), out var num))
+                {
+                    numbers.Add(num);
+                }
+            }
+            issueNumbers = numbers;
+            
+            if (issueNumbers.Count == 0)
+            {
+                // Invalid input, fall back to filtered issues
+                issueNumbers = _filteredIssues.Select(i => i.Number).ToList();
+            }
+        }
+        else
+        {
+            // Use filtered issues
+            issueNumbers = _filteredIssues.Select(i => i.Number).ToList();
+        }
+        
+        if (issueNumbers.Count == 0)
+        {
+            return;
+        }
+
+        await _resetPackagesCallback(issueNumbers);
     }
 
     public void LoadIssues(IEnumerable<IssueListItem> items)

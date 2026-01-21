@@ -59,18 +59,18 @@
                BorderBrush="#D0D0D0"
                BorderThickness="0,0,0,1"
                Padding="12,10">
-            <Grid ColumnDefinitions="Auto,150,Auto,150,Auto,150,Auto,150,Auto,150,*,Auto,Auto,Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Filters:" FontWeight="SemiBold" Foreground="#333" VerticalAlignment="Center" Margin="0,0,15,0"/>
+            <Grid ColumnDefinitions="Auto,150,Auto,150,Auto,150,Auto,150,Auto,150,*,Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Filters:" FontWeight="SemiBold" Foreground="#333" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <TextBlock Grid.Column="10"
                           Text="{Binding FilteredIssueCount, StringFormat='Issues: {0}'}"
                           FontWeight="SemiBold"
                           Foreground="#0078D4"
                           VerticalAlignment="Center"
                           HorizontalAlignment="Right"
-                          Margin="15,0,15,0"/>
+                          Margin="10,0,10,0"/>
 
                 <!-- Scope Filter -->
-                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,15,0">
+                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,10,0">
                     <TextBlock Text="Scope" FontSize="11" Foreground="#666"/>
                     <ComboBox SelectedItem="{Binding SelectedScope}" SelectedIndex="0">
                         <ComboBox.Items>
@@ -82,13 +82,13 @@
                 </StackPanel>
 
                 <!-- State Filter -->
-                <StackPanel Grid.Column="3" Spacing="4" Margin="0,0,15,0">
+                <StackPanel Grid.Column="3" Spacing="4" Margin="0,0,10,0">
                     <TextBlock Text="State" FontSize="11" Foreground="#666"/>
                     <ComboBox SelectedItem="{Binding SelectedState}" ItemsSource="{Binding AvailableStates}" SelectedIndex="0"/>
                 </StackPanel>
 
                 <!-- Test Result Filter -->
-                <StackPanel Grid.Column="5" Spacing="4" Margin="0,0,15,0">
+                <StackPanel Grid.Column="5" Spacing="4" Margin="0,0,10,0">
                     <TextBlock Text="Test Result" FontSize="11" Foreground="#666"/>
                     <ComboBox SelectedItem="{Binding SelectedTestResult}" SelectedIndex="0">
                         <ComboBox.Items>
@@ -101,7 +101,7 @@
                 </StackPanel>
 
                 <!-- TestTypes Filter -->
-                <StackPanel Grid.Column="7" Spacing="4" Margin="0,0,15,0">
+                <StackPanel Grid.Column="7" Spacing="4" Margin="0,0,10,0">
                     <TextBlock Text="Test Types" FontSize="11" Foreground="#666"/>
                     <ComboBox SelectedItem="{Binding SelectedTestTypes}" SelectedIndex="0">
                         <ComboBox.Items>
@@ -113,7 +113,7 @@
                 </StackPanel>
 
                 <!-- Framework Filter -->
-                <StackPanel Grid.Column="9" Spacing="4" Margin="0,0,15,0">
+                <StackPanel Grid.Column="9" Spacing="4" Margin="0,0,10,0">
                     <TextBlock Text="Framework" FontSize="11" Foreground="#666"/>
                     <ComboBox SelectedItem="{Binding SelectedFramework}" SelectedIndex="0">
                         <ComboBox.Items>
@@ -129,7 +129,7 @@
                        Command="{Binding ToggleDiffCommand}"
                        Foreground="White"
                        MinWidth="80"
-                       Margin="15,0,8,0"
+                       Margin="10,0,6,0"
                        VerticalAlignment="Bottom"
                        Padding="12,6"
                        Background="{Binding ShowDiffOnly, Converter={x:Static converters:BoolToColorConverter.Instance}}">
@@ -146,7 +146,7 @@
                        Background="#0078D4"
                        Foreground="White"
                        MinWidth="100"
-                       Margin="0,0,8,0"
+                       Margin="0,0,6,0"
                        VerticalAlignment="Bottom"
                        Padding="12,6"/>
 
@@ -158,12 +158,24 @@
                        Background="#6C757D"
                        Foreground="White"
                        MinWidth="100"
-                       Margin="0,0,8,0"
+                       Margin="0,0,6,0"
+                       VerticalAlignment="Bottom"
+                       Padding="12,6"/>
+
+                <!-- Reset Packages Button -->
+                <Button Grid.Column="14"
+                       x:Name="IssueListResetPackagesButton"
+                       Content="🔄 Reset Packages"
+                       Command="{Binding ResetPackagesCommand}"
+                       Background="#FF9800"
+                       Foreground="White"
+                       MinWidth="120"
+                       Margin="0,0,6,0"
                        VerticalAlignment="Bottom"
                        Padding="12,6"/>
 
                 <!-- Sync from GitHub Button -->
-                <Button Grid.Column="14"
+                <Button Grid.Column="15"
                        x:Name="IssueListSyncFromGitHubButton"
                        Content="🔄 Sync from GitHub"
                        Command="{Binding SyncFromGitHubCommand}"

@@ -55,7 +55,6 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
             // Load results for summary counts (per-issue aggregation)
             var dataDir = _environmentService.GetDataDirectory(repositoryPath);
             var resultsPath = Path.Combine(dataDir, "results.json");
-            var baselineResultsPath = Path.Combine(dataDir, "results-baseline.json");
 
             var currentResults = new List<IssueResult>();
             if (File.Exists(resultsPath))
@@ -79,27 +78,6 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
             notRestoredCount = aggregatedCurrent.Count(a => a.Status == AggregatedIssueStatus.NotRestored);
             notCompilingCount = aggregatedCurrent.Count(a => a.Status == AggregatedIssueStatus.NotCompiling);
             notTestedCount = aggregatedCurrent.Count(a => a.Status == AggregatedIssueStatus.NotTested);
-
-            var baselinePassedCount = 0;
-            var baselineFailedCount = 0;
-
-            if (File.Exists(baselineResultsPath))
-            {
-                try
-                {
-                    var baselineResultsJson = await File.ReadAllTextAsync(baselineResultsPath);
-                    var baselineResults = JsonSerializer.Deserialize<List<IssueResult>>(baselineResultsJson) ?? [];
-
-                    // Baseline counts should also be per issue using the same rules
-                    var aggregatedBaseline = _aggregator.AggregatePerIssue(folders, baselineResults, _markerService, log);
-                    baselinePassedCount = aggregatedBaseline.Count(a => a.Status == AggregatedIssueStatus.Passed);
-                    baselineFailedCount = aggregatedBaseline.Count(a => a.Status == AggregatedIssueStatus.Failed);
-                }
-                catch (Exception ex)
-                {
-                    log($"Warning: Failed to load results-baseline.json: {ex.Message}");
-                }
-            }
 
             // Load metadata counts
             var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
@@ -180,34 +158,11 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
             currentPackages = LoadPackageVersions(Path.Combine(dataDir, "nunit-packages-current.json")) ?? "Not set";
 
             // Build summary text
-            var passedDiff = passedCount - baselinePassedCount;
-            var failedDiff = failedCount - baselineFailedCount;
-            var passedDiffText = passedDiff >= 0 ? $"+{passedDiff}" : $"{passedDiff}";
-            var failedDiffText = failedDiff >= 0 ? $"+{failedDiff}" : $"{failedDiff}";
-
             var repoConfig = _environmentService.RepositoryConfig;
             var repoInfo = repoConfig != null ? $"{repoConfig.Owner}/{repoConfig.Name}" : "Unknown";
 
-            var passedLine = $"Passed: {passedCount}";
-            if (baselinePassedCount > 0 || baselineFailedCount > 0)
-            {
-                passedLine += $" ({passedDiffText})";
-            }
-
-            var failedLine = $"Failed: {failedCount}";
-            if (baselinePassedCount > 0 || baselineFailedCount > 0)
-            {
-                failedLine += $" ({failedDiffText})";
-            }
-
             summaryText = $"Repository: {repoInfo}\n" +
-                          $"Issues: {folders.Count} folders, {foldersWithMetadata} with metadata\n" +
-                          $"{passedLine}\n" +
-                          $"{failedLine}\n" +
-                          $"Skipped: {skippedCount}\n" +
-                          $"Not Restored: {notRestoredCount}\n" +
-                          $"Not Compiling: {notCompilingCount}\n" +
-                          $"Not Tested: {notTestedCount}";
+                          $"Issues: {folders.Count} folders, {foldersWithMetadata} with metadata";
 
             log($"Loaded repository: {repositoryPath}");
             log($"Found {folders.Count} issue folders, {metadataCount} with metadata ({metadataCount - metadataWithoutFolders.Count} central, {metadataWithoutFolders.Count} local only)");

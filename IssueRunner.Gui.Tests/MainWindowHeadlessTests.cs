@@ -218,21 +218,13 @@ public class MainWindowHeadlessTests : HeadlessTestBase
         }
         await Task.Delay(200); // Additional delay to ensure all counts are set
 
-        // Assert - Verify SummaryText contains all status lines
-        // This test verifies that the UI displays all status lines correctly
+        // Assert - Verify SummaryText contains repository info
+        // SummaryText now only contains repository info and issues count (status lines removed)
         // The actual count calculation is tested in MainViewModelTests.LoadRepository_CalculatesAllStatusCountsCorrectly
         var summaryText = viewModel.SummaryText;
         Assert.That(summaryText, Is.Not.Null, "SummaryText should not be null");
         Assert.That(summaryText, Does.Not.Contain("Select a repository to begin"), 
             $"Repository should be loaded. SummaryText: {summaryText}");
-        
-        // Verify SummaryText contains all status lines (regardless of counts)
-        Assert.That(summaryText, Does.Contain("Passed:"), "SummaryText should contain Passed line");
-        Assert.That(summaryText, Does.Contain("Failed:"), "SummaryText should contain Failed line");
-        Assert.That(summaryText, Does.Contain("Skipped:"), "SummaryText should contain Skipped line");
-        Assert.That(summaryText, Does.Contain("Not Restored:"), "SummaryText should contain Not Restored line");
-        Assert.That(summaryText, Does.Contain("Not Compiling:"), "SummaryText should contain Not Compiling line");
-        Assert.That(summaryText, Does.Contain("Not Tested:"), "SummaryText should contain Not Tested line");
         
         // Verify that all status count properties exist and are accessible
         // (The actual values are tested in MainViewModelTests)
