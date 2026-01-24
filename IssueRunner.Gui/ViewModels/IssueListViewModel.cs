@@ -30,6 +30,7 @@ public class IssueListViewModel : ViewModelBase
     private Func<Task>? _reloadIssuesCallback;
     private string _repositoryBaseUrl = "";
     private Dictionary<string, ChangeType> _issueChanges = new();
+    private IssueViewMode _viewMode = IssueViewMode.Current;
 
     public IssueListViewModel()
     {
@@ -194,9 +195,21 @@ public class IssueListViewModel : ViewModelBase
 
     public IssueViewMode ViewMode
     {
-        get;
-        set => SetProperty(ref field, value);
-    } = IssueViewMode.Current;
+        get => _viewMode;
+        set
+        {
+            if (SetProperty(ref _viewMode, value))
+            {
+                // Notify that AreButtonsEnabled has changed
+                OnPropertyChanged(nameof(AreButtonsEnabled));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets whether action buttons are enabled. Buttons are only enabled when ViewMode is Current.
+    /// </summary>
+    public bool AreButtonsEnabled => ViewMode == IssueViewMode.Current;
 
     public Dictionary<string, ChangeType> IssueChanges
     {
@@ -394,9 +407,9 @@ public class IssueListViewModel : ViewModelBase
             filtered = SelectedScope switch
             {
                 TestScope.Regression => filtered.Where(i => 
-                    i.State == "closed"),
+                    i.State == GithubIssueState.Closed),
                 TestScope.Open => filtered.Where(i => 
-                    i.State == "open"),
+                    i.State == GithubIssueState.Open),
                 _ => filtered
             };
         }
@@ -421,9 +434,9 @@ public class IssueListViewModel : ViewModelBase
         {
             filtered = SelectedTestResult switch
             {
-                "Success" => filtered.Where(i => i.TestResult == "success"),
-                "Fail" => filtered.Where(i => i.TestResult == "fail"),
-                "Not Tested" => filtered.Where(i => i.TestResult == "Not tested" || string.IsNullOrEmpty(i.TestResult)),
+                "Success" => filtered.Where(i => i.TestResult == "Success" || i.TestResult == "success"),
+                "Fail" => filtered.Where(i => i.TestResult == "Failed" || i.TestResult == "fail"),
+                "Not Tested" => filtered.Where(i => i.TestResult == "NotRun" || i.TestResult == "Not tested" || string.IsNullOrEmpty(i.TestResult)),
                 _ => filtered
             };
         }

@@ -25,6 +25,7 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
     private readonly IServiceProvider _services;
     private readonly IEnvironmentService _environmentService;
     private readonly IIssueDiscoveryService _issueDiscovery;
+    private readonly IMarkerService _markerService;
     private CancellationTokenSource? _cancellationSource;
     private RunTestsStatusViewModel? _statusViewModel;
     private RunTestsStatusDialog? _statusDialog;
@@ -32,11 +33,13 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
     public TestRunOrchestrator(
         IServiceProvider services,
         IEnvironmentService environmentService,
-        IIssueDiscoveryService issueDiscovery)
+        IIssueDiscoveryService issueDiscovery,
+        IMarkerService markerService)
     {
         _services = services;
         _environmentService = environmentService;
         _issueDiscovery = issueDiscovery;
+        _markerService = markerService;
     }
 
     public bool IsRunning => _cancellationSource != null && !_cancellationSource.Token.IsCancellationRequested;
@@ -85,13 +88,30 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
 
             var options = optionsViewModel.Result;
 
-            // Determine total issues
+            // Determine total issues (only count runnable issues, excluding skipped and not synced)
             var totalIssues = options.IssueNumbers?.Count ?? 0;
             if (totalIssues == 0)
             {
-                // Need to count issues that will be run
+                // Need to count issues that will be run (filter out skipped and not synced)
                 var issueFolders = _issueDiscovery.DiscoverIssueFolders();
-                totalIssues = issueFolders.Count;
+                totalIssues = CountRunnableIssues(issueFolders);
+            }
+            else if (options.IssueNumbers != null)
+            {
+                // Filter the specified issue numbers to only count runnable ones
+                var issueFolders = _issueDiscovery.DiscoverIssueFolders();
+                var runnableCount = 0;
+                foreach (var issueNumber in options.IssueNumbers)
+                {
+                    if (issueFolders.TryGetValue(issueNumber, out var folderPath))
+                    {
+                        if (IsRunnableIssue(folderPath))
+                        {
+                            runnableCount++;
+                        }
+                    }
+                }
+                totalIssues = runnableCount;
             }
 
             return await ExecuteTestRunAsync(
@@ -185,9 +205,23 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
                 IssueNumbers = issueNumbers // Use the filtered list
             };
 
+            // Count only runnable issues (excluding skipped and not synced)
+            var issueFolders = _issueDiscovery.DiscoverIssueFolders();
+            var runnableCount = 0;
+            foreach (var issueNumber in issueNumbers)
+            {
+                if (issueFolders.TryGetValue(issueNumber, out var folderPath))
+                {
+                    if (IsRunnableIssue(folderPath))
+                    {
+                        runnableCount++;
+                    }
+                }
+            }
+
             return await ExecuteTestRunAsync(
                 options,
-                issueNumbers.Count,
+                runnableCount,
                 log,
                 onRepositoryReload,
                 onIssuesReload,
@@ -491,11 +525,21 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
                     _statusViewModel.CurrentPhaseProgress = 0;
                     _statusViewModel.CurrentPhaseTotal = 0;
                 }
-                else if (message.Contains("Skipped", StringComparison.OrdinalIgnoreCase))
+                else if (message.Contains("Skipped", StringComparison.OrdinalIgnoreCase) ||
+                         message.Contains("Not synced", StringComparison.OrdinalIgnoreCase))
                 {
-                    _statusViewModel.ProcessedIssues++;
-                    _statusViewModel.Skipped++;
-                    _statusViewModel.CurrentStatus = $"Issue {issueNum} skipped";
+                    // Don't increment ProcessedIssues for skipped/not synced - they're not runnable
+                    // Only update the status and statistics
+                    if (message.Contains("Not synced", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _statusViewModel.Skipped++;
+                        _statusViewModel.CurrentStatus = $"Issue {issueNum} not synced";
+                    }
+                    else
+                    {
+                        _statusViewModel.Skipped++;
+                        _statusViewModel.CurrentStatus = $"Issue {issueNum} skipped";
+                    }
                     _statusViewModel.CurrentPhase = "";
                     _statusViewModel.CurrentPhaseProgress = 0;
                     _statusViewModel.CurrentPhaseTotal = 0;
@@ -541,5 +585,42 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
         {
             // Ignore errors in status updates
         }
+    }
+
+    /// <summary>
+    /// Checks if an issue is runnable (not skipped and has been synced).
+    /// </summary>
+    private bool IsRunnableIssue(string folderPath)
+    {
+        // Skip if marker file exists
+        if (_markerService.ShouldSkipIssue(folderPath))
+        {
+            return false;
+        }
+
+        // Skip if not synced (missing initial state file)
+        var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
+        if (!File.Exists(initialStatePath))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Counts only runnable issues (excluding skipped and not synced).
+    /// </summary>
+    private int CountRunnableIssues(Dictionary<int, string> issueFolders)
+    {
+        var count = 0;
+        foreach (var (_, folderPath) in issueFolders)
+        {
+            if (IsRunnableIssue(folderPath))
+            {
+                count++;
+            }
+        }
+        return count;
     }
 }

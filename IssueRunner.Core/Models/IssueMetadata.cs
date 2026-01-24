@@ -1,4 +1,14 @@
+using System.Text.Json.Serialization;
+
 namespace IssueRunner.Models;
+
+public enum GithubIssueState
+{
+    Open,
+    Closed
+}
+
+
 
 /// <summary>
 /// Represents issue metadata from GitHub.
@@ -21,7 +31,8 @@ public sealed class IssueMetadata
     /// Gets or sets the issue state (open/closed).
     /// </summary>
     [JsonPropertyName("state")]
-    public required string State { get; init; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public required GithubIssueState State { get; init; }
 
     /// <summary>
     /// Gets or sets the milestone name.

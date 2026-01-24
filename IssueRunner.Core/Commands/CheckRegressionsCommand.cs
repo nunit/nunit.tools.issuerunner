@@ -2,6 +2,7 @@ using IssueRunner.Models;
 using IssueRunner.Services;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace IssueRunner.Commands;
 
@@ -68,8 +69,8 @@ public sealed class CheckRegressionsCommand
         var regressions = results
             .Where(r =>
                 metadataDict.TryGetValue(r.Number, out var m) &&
-                m.State == "closed" &&
-                r.TestResult == "fail")
+                m.State == GithubIssueState.Closed &&
+                r.TestResult == StepResultStatus.Failed)
             .ToList();
 
         if (regressions.Count == 0)
@@ -96,7 +97,11 @@ public sealed class CheckRegressionsCommand
         CancellationToken cancellationToken)
     {
         var json = await File.ReadAllTextAsync(path, cancellationToken);
-        return JsonSerializer.Deserialize<List<IssueResult>>(json) ?? [];
+        var options = new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+        return JsonSerializer.Deserialize<List<IssueResult>>(json, options) ?? [];
     }
 
     private async Task<List<IssueMetadata>> LoadMetadataAsync(
@@ -104,7 +109,11 @@ public sealed class CheckRegressionsCommand
         CancellationToken cancellationToken)
     {
         var json = await File.ReadAllTextAsync(path, cancellationToken);
-        return JsonSerializer.Deserialize<List<IssueMetadata>>(json) ?? [];
+        var options = new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+        return JsonSerializer.Deserialize<List<IssueMetadata>>(json, options) ?? [];
     }
 }
 

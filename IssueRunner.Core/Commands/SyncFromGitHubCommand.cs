@@ -251,7 +251,8 @@ public sealed class SyncFromGitHubCommand
 
         var options = new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
         };
 
         var json = JsonSerializer.Serialize(metadata, options);

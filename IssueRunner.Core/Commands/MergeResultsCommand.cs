@@ -1,6 +1,7 @@
 using IssueRunner.Models;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace IssueRunner.Commands;
 
@@ -94,7 +95,11 @@ public sealed class MergeResultsCommand
         }
 
         var json = await File.ReadAllTextAsync(path, cancellationToken);
-        return JsonSerializer.Deserialize<List<IssueResult>>(json) ?? [];
+        var options = new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+        return JsonSerializer.Deserialize<List<IssueResult>>(json, options) ?? [];
     }
 
     private async Task SaveResultsAsync(
@@ -104,7 +109,8 @@ public sealed class MergeResultsCommand
     {
         var options = new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
         };
 
         var json = JsonSerializer.Serialize(results, options);

@@ -602,3 +602,94 @@ To control how issues are processed, you can drop marker files into issue folder
 | `gui` or `gui.md` | GUI-related issue |
 | `closedasnotplanned` or `closedasnotplanned.md` | Closed as not planned |
 | `windows` or `windows.md` | Windows-only issue (skipped on Linux CI) |
+
+## Enums
+
+The IssueRunner tool uses several enums to represent status values and options. All enums are serialized as strings in JSON (not numbers).
+
+### StepResultStatus
+
+Represents the result status of a test execution step (update, restore, build, or test).
+
+| Value | Description |
+|-------|-------------|
+| `Success` | Step completed successfully |
+| `Failed` | Step failed |
+| `NotRun` | Step has not been run yet |
+
+### RunResult
+
+Represents whether an issue is runnable and why it might not be run.
+
+| Value | Description |
+|-------|-------------|
+| `Run` | Issue has been run |
+| `Skipped` | Skipped due to marker file |
+| `NotSynced` | Missing initial state file (not synced) |
+| `NotRun` | Not run yet |
+
+### ChangeType
+
+Represents the type of change between baseline and current test results.
+
+| Value | Description |
+|-------|-------------|
+| `None` | No change |
+| `Fixed` | Was non-success, now success (Green) |
+| `Regression` | Was success, now fail (Red) |
+| `CompileToFail` | Was not compile/restore fail, now test fail (Orange) |
+| `Skipped` | Was fail, now skipped (exclude from list) |
+| `Other` | Any other status change (Grey) |
+
+### IssueState
+
+Represents the detailed state of an issue.
+
+| Value | Description |
+|-------|-------------|
+| `New` | Issue has metadata but no test results yet |
+| `Synced` | Issue has metadata and has been processed (e.g., has test results) |
+| `FailedRestore` | Issue failed during the restore step |
+| `FailedCompile` | Issue failed during the compile/build step |
+| `Runnable` | Issue is runnable and passed restore/compile |
+| `Skipped` | Issue is skipped due to a marker file |
+
+### TestScope
+
+Test scope options for filtering which issues to run.
+
+| Value | Description |
+|-------|-------------|
+| `All` | All issues |
+| `Regression` | Closed issues (regression tests) |
+| `Open` | Open issues |
+
+### TestTypes
+
+Test types filter for execution mode.
+
+| Value | Description |
+|-------|-------------|
+| `All` | All test types |
+| `Direct` | Only direct dotnet test execution |
+| `Custom` | Only custom script execution |
+
+### LogVerbosity
+
+Logging verbosity options.
+
+| Value | Description |
+|-------|-------------|
+| `Normal` | Normal output - key steps only |
+| `Verbose` | Verbose output - detailed diagnostic info |
+
+### PackageFeed
+
+Package feed options for selecting which NuGet packages to use.
+
+| Value | Description |
+|-------|-------------|
+| `Stable` | Stable packages from nuget.org only |
+| `Beta` | Beta packages - nuget.org with prerelease enabled |
+| `Alpha` | Alpha packages - nuget.org + myget with prerelease enabled |
+| `Local` | Local feed at C:\nuget with prerelease enabled |

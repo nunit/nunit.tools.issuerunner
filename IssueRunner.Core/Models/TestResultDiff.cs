@@ -18,7 +18,7 @@ public sealed class TestResultDiff
     /// <summary>
     /// Gets or sets the baseline status (e.g., "success", "fail", "not compile").
     /// </summary>
-    public required string BaselineStatus { get; init; }
+    public required StepResultStatus BaselineStatus { get; init; }
 
     /// <summary>
     /// Gets or sets the current status (e.g., "success", "fail", "skipped").

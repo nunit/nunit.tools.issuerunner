@@ -259,9 +259,9 @@ public class RunTestsCommandTests
         
         var metadata = new List<IssueMetadata>
         {
-            new() { Number = 1, State = "closed", Title = "Issue 1", Labels = [], Url = "https://github.com/test/test/issues/1" },
-            new() { Number = 2, State = "open", Title = "Issue 2", Labels = [], Url = "https://github.com/test/test/issues/2" },
-            new() { Number = 3, State = "closed", Title = "Issue 3", Labels = [], Url = "https://github.com/test/test/issues/3" }
+            new() { Number = 1, State = GithubIssueState.Closed, Title = "Issue 1", Labels = [], Url = "https://github.com/test/test/issues/1" },
+            new() { Number = 2, State = GithubIssueState.Open, Title = "Issue 2", Labels = [], Url = "https://github.com/test/test/issues/2" },
+            new() { Number = 3, State = GithubIssueState.Closed, Title = "Issue 3", Labels = [], Url = "https://github.com/test/test/issues/3" }
         };
         
         var metadataJson = JsonSerializer.Serialize(metadata);
@@ -310,9 +310,9 @@ public class RunTestsCommandTests
         
         var metadata = new List<IssueMetadata>
         {
-            new() { Number = 1, State = "closed", Title = "Issue 1", Labels = [], Url = "https://github.com/test/test/issues/1" },
-            new() { Number = 2, State = "open", Title = "Issue 2", Labels = [], Url = "https://github.com/test/test/issues/2" },
-            new() { Number = 3, State = "open", Title = "Issue 3", Labels = [], Url = "https://github.com/test/test/issues/3" }
+            new() { Number = 1, State = GithubIssueState.Closed, Title = "Issue 1", Labels = [], Url = "https://github.com/test/test/issues/1" },
+            new() { Number = 2, State = GithubIssueState.Open, Title = "Issue 2", Labels = [], Url = "https://github.com/test/test/issues/2" },
+            new() { Number = 3, State = GithubIssueState.Open, Title = "Issue 3", Labels = [], Url = "https://github.com/test/test/issues/3" }
         };
         
         var metadataJson = JsonSerializer.Serialize(metadata);
@@ -361,9 +361,9 @@ public class RunTestsCommandTests
         
         var metadata = new List<IssueMetadata>
         {
-            new() { Number = 1, State = "closed", Title = "Issue 1", Labels = [], Url = "https://github.com/test/test/issues/1" },
-            new() { Number = 2, State = "open", Title = "Issue 2", Labels = [], Url = "https://github.com/test/test/issues/2" },
-            new() { Number = 3, State = "closed", Title = "Issue 3", Labels = [], Url = "https://github.com/test/test/issues/3" }
+            new() { Number = 1, State = GithubIssueState.Closed, Title = "Issue 1", Labels = [], Url = "https://github.com/test/test/issues/1" },
+            new() { Number = 2, State = GithubIssueState.Open, Title = "Issue 2", Labels = [], Url = "https://github.com/test/test/issues/2" },
+            new() { Number = 3, State = GithubIssueState.Closed, Title = "Issue 3", Labels = [], Url = "https://github.com/test/test/issues/3" }
         };
         
         var metadataJson = JsonSerializer.Serialize(metadata);

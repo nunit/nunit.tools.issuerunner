@@ -138,7 +138,8 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
             new TestRunOrchestrator(
                 sp,
                 _environmentService,
-                sp.GetRequiredService<IIssueDiscoveryService>()));
+                sp.GetRequiredService<IIssueDiscoveryService>(),
+                markerServiceForLoader));
         serviceCollection.AddSingleton<ISyncCoordinator>(sp =>
             new SyncCoordinator(
                 sp,
@@ -176,7 +177,7 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
             {
                 Number = 228,
                 Title = "Tests inherited from Generic test fixture",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = "No milestone",
                 Labels = ["is:bug", "pri:normal"],
                 Url = "https://github.com/test/test/issues/228"
@@ -236,7 +237,7 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
             {
                 Number = 228,
                 Title = "Some other issue",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = "No milestone",
                 Labels = [],
                 Url = "https://github.com/test/test/issues/228"
@@ -293,7 +294,7 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
             {
                 Number = 1,
                 Title = "Test Issue 1",
-                State = "open",
+                State = GithubIssueState.Open,
                 Milestone = null,
                 Labels = [],
                 Url = "https://github.com/test/test/issues/1"
@@ -416,7 +417,7 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
             {
                 Number = 228,
                 Title = "Tests inherited from Generic test fixture",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = "No milestone",
                 Labels = ["is:bug"],
                 Url = "https://github.com/test/test/issues/228"
@@ -454,7 +455,7 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
         Assert.That(issue228, Is.Not.Null, "Issue 228 should be found");
         Assert.That(issue228!.Number, Is.EqualTo(228), "Number should be set");
         Assert.That(issue228.Title, Is.EqualTo("Tests inherited from Generic test fixture"), "Title should be set");
-        Assert.That(issue228.State, Is.EqualTo("closed"), "State should be set");
+        Assert.That(issue228.State, Is.EqualTo(GithubIssueState.Closed), "State should be set");
         Assert.That(issue228.GitHubUrl, Is.Not.Empty, "GitHubUrl should be set");
     }
 
@@ -484,7 +485,7 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
             {
                 Number = 1,
                 Title = "First Issue",
-                State = "open",
+                State = GithubIssueState.Open,
                 Milestone = null,
                 Labels = [],
                 Url = "https://github.com/test/test/issues/1"
@@ -493,7 +494,7 @@ public class TitleDisplayIntegrationTests : HeadlessTestBase
             {
                 Number = 228,
                 Title = "Tests inherited from Generic test fixture",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = "No milestone",
                 Labels = [],
                 Url = "https://github.com/test/test/issues/228"

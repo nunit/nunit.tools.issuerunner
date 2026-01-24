@@ -1,4 +1,5 @@
 using IssueRunner.Models;
+using System.Text.Json;
 
 namespace IssueRunner.Tests.Models;
 
@@ -16,7 +17,7 @@ public class IssueMetadataTests
         {
             Number = 228,
             Title = "Tests inherited from Generic test fixture",
-            State = "closed",
+            State = GithubIssueState.Closed,
             Milestone = "No milestone",
             Labels = ["is:bug", "pri:normal"],
             Url = "https://github.com/nunit/nunit3-vs-adapter/issues/228"
@@ -30,7 +31,7 @@ public class IssueMetadataTests
         Assert.That(deserialized, Is.Not.Null);
         Assert.That(deserialized!.Number, Is.EqualTo(228));
         Assert.That(deserialized.Title, Is.EqualTo("Tests inherited from Generic test fixture"));
-        Assert.That(deserialized.State, Is.EqualTo("closed"));
+        Assert.That(deserialized.State, Is.EqualTo(GithubIssueState.Closed));
         Assert.That(deserialized.Milestone, Is.EqualTo("No milestone"));
         Assert.That(deserialized.Labels, Is.EquivalentTo(new[] { "is:bug", "pri:normal" }));
         Assert.That(deserialized.Url, Is.EqualTo("https://github.com/nunit/nunit3-vs-adapter/issues/228"));
@@ -58,7 +59,7 @@ public class IssueMetadataTests
         Assert.That(metadata, Is.Not.Null);
         Assert.That(metadata!.Number, Is.EqualTo(228));
         Assert.That(metadata.Title, Is.EqualTo("Tests inherited from Generic test fixture"));
-        Assert.That(metadata.State, Is.EqualTo("closed"));
+        Assert.That(metadata.State, Is.EqualTo(GithubIssueState.Closed));
         Assert.That(metadata.Labels, Has.Count.EqualTo(3));
     }
 }

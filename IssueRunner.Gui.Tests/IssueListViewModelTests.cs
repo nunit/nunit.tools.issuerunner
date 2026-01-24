@@ -136,9 +136,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, State = "closed" },
-            new IssueListItem { Number = 2, State = "open" },
-            new IssueListItem { Number = 3, State = "closed" }
+            new IssueListItem { Number = 1, State = GithubIssueState.Closed },
+            new IssueListItem { Number = 2, State = GithubIssueState.Open },
+            new IssueListItem { Number = 3, State = GithubIssueState.Closed }
         };
         viewModel.LoadIssues(issues);
         
@@ -147,7 +147,7 @@ public class IssueListViewModelTests
         
         // Assert
         Assert.That(viewModel.Issues.Count, Is.EqualTo(2));
-        Assert.That(viewModel.Issues.All(i => i.State == "closed"), Is.True);
+        Assert.That(viewModel.Issues.All(i => i.State == GithubIssueState.Closed), Is.True);
         Assert.That(viewModel.Issues.Select(i => i.Number), Is.EquivalentTo(new[] { 1, 3 }));
     }
 
@@ -158,9 +158,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, State = "closed" },
-            new IssueListItem { Number = 2, State = "open" },
-            new IssueListItem { Number = 3, State = "open" }
+            new IssueListItem { Number = 1, State = GithubIssueState.Closed },
+            new IssueListItem { Number = 2, State = GithubIssueState.Open },
+            new IssueListItem { Number = 3, State = GithubIssueState.Open }
         };
         viewModel.LoadIssues(issues);
         
@@ -169,7 +169,7 @@ public class IssueListViewModelTests
         
         // Assert
         Assert.That(viewModel.Issues.Count, Is.EqualTo(2));
-        Assert.That(viewModel.Issues.All(i => i.State == "open"), Is.True);
+        Assert.That(viewModel.Issues.All(i => i.State == GithubIssueState.Open), Is.True);
         Assert.That(viewModel.Issues.Select(i => i.Number), Is.EquivalentTo(new[] { 2, 3 }));
     }
 
@@ -180,9 +180,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, State = "closed" },
-            new IssueListItem { Number = 2, State = "open" },
-            new IssueListItem { Number = 3, State = "closed" }
+            new IssueListItem { Number = 1, State = GithubIssueState.Closed },
+            new IssueListItem { Number = 2, State = GithubIssueState.Open },
+            new IssueListItem { Number = 3, State = GithubIssueState.Closed }
         };
         viewModel.LoadIssues(issues);
         viewModel.SelectedScope = TestScope.Regression; // First filter to Regression
@@ -355,8 +355,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", State = "open" },
-            new IssueListItem { Number = 2, Title = "Title 2", State = "closed" }
+            new IssueListItem { Number = 1, Title = "Title 1", State = GithubIssueState.Open },
+            new IssueListItem { Number = 2, Title = "Title 2", State = GithubIssueState.Closed }
         };
 
         // Act
@@ -393,8 +393,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", State = "open" },
-            new IssueListItem { Number = 2, Title = "Title 2", State = "closed" }
+            new IssueListItem { Number = 1, Title = "Title 1", State = GithubIssueState.Open },
+            new IssueListItem { Number = 2, Title = "Title 2", State = GithubIssueState.Closed }
         };
         viewModel.LoadIssues(issues);
 
@@ -508,7 +508,7 @@ public class IssueListViewModelTests
         };
 
         // Act
-        viewModel.ShowDiffOnly = true;
+        viewModel.ViewMode = IssueViewMode.Diff;
 
         // Assert
         Assert.That(viewModel.Issues.Count, Is.EqualTo(1));
@@ -523,8 +523,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", State = "open", TestResult = "success" },
-            new IssueListItem { Number = 2, Title = "Title 2", State = "closed", TestResult = "fail" }
+            new IssueListItem { Number = 1, Title = "Title 1", State = GithubIssueState.Open, TestResult = "success" },
+            new IssueListItem { Number = 2, Title = "Title 2", State = GithubIssueState.Closed, TestResult = "fail" }
         };
         viewModel.LoadIssues(issues);
 

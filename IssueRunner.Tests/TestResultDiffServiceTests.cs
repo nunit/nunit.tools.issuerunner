@@ -53,11 +53,11 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "fail" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -81,11 +81,11 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "fail" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -113,7 +113,7 @@ public class TestResultDiffServiceTests
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "fail" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -135,11 +135,11 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "fail" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "skipped" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.NotRun, RunResult = RunResult.Skipped }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -160,11 +160,11 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "unknown" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.NotRun, RunResult = RunResult.NotRun }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -186,11 +186,11 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -211,13 +211,13 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test1.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" },
-            new IssueResult { Number = 2, ProjectPath = "Test2.csproj", TargetFrameworks = [], Packages = [], TestResult = "fail" }
+            new IssueResult { Number = 1, ProjectPath = "Test1.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run },
+            new IssueResult { Number = 2, ProjectPath = "Test2.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test1.csproj", TargetFrameworks = [], Packages = [], TestResult = "fail" },
-            new IssueResult { Number = 2, ProjectPath = "Test2.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test1.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run },
+            new IssueResult { Number = 2, ProjectPath = "Test2.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -241,7 +241,7 @@ public class TestResultDiffServiceTests
         var baseline = new List<IssueResult>();
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -265,7 +265,7 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>();
         
@@ -288,11 +288,11 @@ public class TestResultDiffServiceTests
         // Arrange - using different status formats
         var baseline = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "Pass" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "Failed" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);
@@ -330,11 +330,11 @@ public class TestResultDiffServiceTests
         // Arrange
         var baseline = new List<IssueResult>
         {
-            new() { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = "success" }
+            new() { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var current = new List<IssueResult>
         {
-            new() { Number = 1, ProjectPath = "test.csproj", TargetFrameworks = [], Packages = [], TestResult = "fail" }
+            new() { Number = 1, ProjectPath = "test.csproj", TargetFrameworks = [], Packages = [], TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile("results-baseline.json", baseline);

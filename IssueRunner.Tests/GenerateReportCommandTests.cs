@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace IssueRunner.Tests;
 
@@ -78,11 +79,11 @@ public class GenerateReportCommandTests
         // Arrange
         var results = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var metadata = new List<IssueMetadata>
         {
-            new IssueMetadata { Number = 1, State = "open", Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
+            new IssueMetadata { Number = 1, State = GithubIssueState.Open, Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
         };
         
         await WriteResultsFile("results.json", results);
@@ -109,7 +110,11 @@ public class GenerateReportCommandTests
     private async Task WriteMetadataFile(string fileName, List<IssueMetadata> metadata)
     {
         var filePath = Path.Combine(_dataDir, fileName);
-        var json = JsonSerializer.Serialize(metadata);
+        var options = new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+        var json = JsonSerializer.Serialize(metadata, options);
         await File.WriteAllTextAsync(filePath, json);
     }
 }

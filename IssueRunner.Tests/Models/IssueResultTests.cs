@@ -17,16 +17,17 @@ public class IssueResultTests
             ProjectStyle = "SDK-style",
             TargetFrameworks = new List<string> { "net10.0" },
             Packages = new List<string> { "NUnit=4.4.0" },
-            UpdateResult = "success",
+            UpdateResult = StepResultStatus.Success,
             UpdateOutput = "Output",
             UpdateError = "",
-            RestoreResult = "success",
+            RestoreResult = StepResultStatus.Success,
             RestoreOutput = "Restored",
             RestoreError = "",
-            BuildResult = "success",
+            BuildResult = StepResultStatus.Success,
             BuildOutput = "Built",
             BuildError = "",
-            TestResult = "success",
+            TestResult = StepResultStatus.Success,
+            RunResult = RunResult.Run,
             TestOutput = "Passed",
             TestError = "",
             TestConclusion = "Success",
@@ -48,7 +49,7 @@ public class IssueResultTests
         Assert.That(deserialized.ProjectStyle, Is.EqualTo("SDK-style"));
         Assert.That(deserialized.TargetFrameworks, Is.EquivalentTo(new[] { "net10.0" }));
         Assert.That(deserialized.Packages, Is.EquivalentTo(new[] { "NUnit=4.4.0" }));
-        Assert.That(deserialized.TestResult, Is.EqualTo("success"));
+        Assert.That(deserialized.TestResult, Is.EqualTo(StepResultStatus.Success));
         Assert.That(deserialized.LastRun, Is.EqualTo("2026-01-17T10:26:38Z"));
     }
 
@@ -93,12 +94,16 @@ public class IssueResultTests
 }";
 
         // Act
-        var result = JsonSerializer.Deserialize<IssueResult>(json);
+        var options = new JsonSerializerOptions
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
+        var result = JsonSerializer.Deserialize<IssueResult>(json, options);
 
         // Assert
         Assert.That(result, Is.Not.Null);
         Assert.That(result!.Number, Is.EqualTo(228));
         Assert.That(result.ProjectPath, Is.EqualTo("Issue228.csproj"));
-        Assert.That(result.TestResult, Is.EqualTo("success"));
+        Assert.That(result.TestResult, Is.EqualTo(StepResultStatus.Success));
     }
 }

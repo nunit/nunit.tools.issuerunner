@@ -43,11 +43,11 @@ public class MergeResultsCommandTests
         
         var linuxResults = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var windowsResults = new List<IssueResult>
         {
-            new IssueResult { Number = 2, ProjectPath = "Test2.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = "success" }
+            new IssueResult { Number = 2, ProjectPath = "Test2.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile(Path.Combine(linuxPath, "results.json"), linuxResults);
@@ -82,11 +82,11 @@ public class MergeResultsCommandTests
         
         var linuxResults = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         var windowsResults = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = "fail" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = StepResultStatus.Failed, RunResult = RunResult.Run }
         };
         
         await WriteResultsFile(Path.Combine(linuxPath, "results.json"), linuxResults);
@@ -119,7 +119,7 @@ public class MergeResultsCommandTests
         // Only create Linux results
         var linuxResults = new List<IssueResult>
         {
-            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = "success" }
+            new IssueResult { Number = 1, ProjectPath = "Test.csproj", TargetFrameworks = new List<string>(), Packages = new List<string>(), TestResult = StepResultStatus.Success, RunResult = RunResult.Run }
         };
         await WriteResultsFile(Path.Combine(linuxPath, "results.json"), linuxResults);
         

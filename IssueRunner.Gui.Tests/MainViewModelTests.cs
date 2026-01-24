@@ -116,7 +116,8 @@ public class MainViewModelTests : HeadlessTestBase
             new TestRunOrchestrator(
                 sp,
                 _environmentService,
-                sp.GetRequiredService<IIssueDiscoveryService>()));
+                sp.GetRequiredService<IIssueDiscoveryService>(),
+                _markerService));
         serviceCollection.AddSingleton<ISyncCoordinator>(sp =>
             new SyncCoordinator(
                 sp,
@@ -308,7 +309,7 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new IssueMetadata { Number = 1, State = "open", Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
+            new IssueMetadata { Number = 1, State = GithubIssueState.Open, Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -388,9 +389,10 @@ public class MainViewModelTests : HeadlessTestBase
             ProjectPath = "Issue1.csproj",
             TargetFrameworks = new List<string> { "net10.0" },
             Packages = new List<string>(),
-            BuildResult = "fail",
-            RestoreResult = "success",
+            BuildResult = StepResultStatus.Failed,
+            RestoreResult = StepResultStatus.Success,
             TestResult = null,
+            RunResult = RunResult.Run,
             LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
         };
         var resultsJson = JsonSerializer.Serialize(new List<IssueResult> { issueResult });
@@ -403,7 +405,7 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new IssueMetadata { Number = 1, State = "open", Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
+            new IssueMetadata { Number = 1, State = GithubIssueState.Open, Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -462,7 +464,7 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new() { Number = 1, State = "open", Title = "Test Issue", Labels = [], Url = "https://github.com/test/test/issues/1" }
+            new() { Number = 1, State = GithubIssueState.Open, Title = "Test Issue", Labels = [], Url = "https://github.com/test/test/issues/1" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -475,9 +477,10 @@ public class MainViewModelTests : HeadlessTestBase
             ProjectPath = "Issue1\\test.csproj",
             TargetFrameworks = new List<string> { "net8.0" },
             Packages = new List<string>(),
-            RestoreResult = "success",
-            BuildResult = "success",
-            TestResult = "success",
+            RestoreResult = StepResultStatus.Success,
+            BuildResult = StepResultStatus.Success,
+            TestResult = StepResultStatus.Success,
+            RunResult = RunResult.Run,
             LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
         };
         var resultsJson = JsonSerializer.Serialize(new List<IssueResult> { issueResult });
@@ -521,8 +524,8 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new IssueMetadata { Number = 1, State = "open", Title = "Test Issue 1", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" },
-            new IssueMetadata { Number = 228, State = "closed", Title = "Test Issue 228", Labels = new List<string>(), Url = "https://github.com/test/test/issues/228" }
+            new IssueMetadata { Number = 1, State = GithubIssueState.Open, Title = "Test Issue 1", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" },
+            new IssueMetadata { Number = 228, State = GithubIssueState.Closed, Title = "Test Issue 228", Labels = new List<string>(), Url = "https://github.com/test/test/issues/228" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -568,8 +571,8 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new IssueMetadata { Number = 1, State = "open", Title = "First Title", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" },
-            new IssueMetadata { Number = 1, State = "closed", Title = "Last Title", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
+            new IssueMetadata { Number = 1, State = GithubIssueState.Open, Title = "First Title", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" },
+            new IssueMetadata { Number = 1, State = GithubIssueState.Closed, Title = "Last Title", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -595,7 +598,7 @@ public class MainViewModelTests : HeadlessTestBase
         var issues = issueListViewModel.AllIssues.ToList();
         Assert.That(issues.Count, Is.EqualTo(1));
         Assert.That(issues.First().Title, Is.EqualTo("Last Title"));
-        Assert.That(issues.First().State, Is.EqualTo("closed"));
+        Assert.That(issues.First().State, Is.EqualTo(GithubIssueState.Closed));
     }
 
     [AvaloniaTest]
@@ -642,7 +645,7 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new() { Number = 228, State = "closed", Title = "Tests inherited from Generic test fixture", Labels = [], Url = "https://github.com/test/test/issues/228" }
+            new() { Number = 228, State = GithubIssueState.Closed, Title = "Tests inherited from Generic test fixture", Labels = [], Url = "https://github.com/test/test/issues/228" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -703,7 +706,7 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new IssueMetadata { Number = 1, State = "open", Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
+            new IssueMetadata { Number = 1, State = GithubIssueState.Open, Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -750,7 +753,7 @@ public class MainViewModelTests : HeadlessTestBase
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadata = new List<IssueMetadata>
         {
-            new() { Number = 1, State = "open", Title = "Test Title", Labels = [], Url = "https://github.com/test/test/issues/1" }
+            new() { Number = 1, State = GithubIssueState.Open, Title = "Test Title", Labels = [], Url = "https://github.com/test/test/issues/1" }
         };
         var metadataJson = JsonSerializer.Serialize(metadata);
         await File.WriteAllTextAsync(metadataPath, metadataJson);
@@ -827,9 +830,10 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue1/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "success",
-                BuildResult = "success",
-                TestResult = "success",
+                RestoreResult = StepResultStatus.Success,
+                BuildResult = StepResultStatus.Success,
+                TestResult = StepResultStatus.Success,
+                RunResult = RunResult.Run,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
             },
             new IssueResult
@@ -838,9 +842,10 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue2/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "success",
-                BuildResult = "success",
-                TestResult = "fail",
+                RestoreResult = StepResultStatus.Success,
+                BuildResult = StepResultStatus.Success,
+                TestResult = StepResultStatus.Failed,
+                RunResult = RunResult.Run,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
             },
             new IssueResult
@@ -849,7 +854,7 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue4/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "fail",
+                RestoreResult = StepResultStatus.Failed,
                 BuildResult = null,
                 TestResult = null,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -860,9 +865,10 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue5/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "success",
-                BuildResult = "fail",
+                RestoreResult = StepResultStatus.Success,
+                BuildResult = StepResultStatus.Failed,
                 TestResult = null,
+                RunResult = RunResult.Run,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
             }
         };
@@ -966,9 +972,10 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue1/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "success",
-                BuildResult = "success",
-                TestResult = "success",
+                RestoreResult = StepResultStatus.Success,
+                BuildResult = StepResultStatus.Success,
+                TestResult = StepResultStatus.Success,
+                RunResult = RunResult.Run,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
             },
             new IssueResult
@@ -977,9 +984,10 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue2/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "success",
-                BuildResult = "success",
-                TestResult = "fail",
+                RestoreResult = StepResultStatus.Success,
+                BuildResult = StepResultStatus.Success,
+                TestResult = StepResultStatus.Failed,
+                RunResult = RunResult.Run,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
             },
             new IssueResult
@@ -988,7 +996,7 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue4/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "fail",
+                RestoreResult = StepResultStatus.Failed,
                 BuildResult = null,
                 TestResult = null,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -999,9 +1007,10 @@ public class MainViewModelTests : HeadlessTestBase
                 ProjectPath = "Issue5/test.csproj",
                 TargetFrameworks = new List<string> { "net8.0" },
                 Packages = new List<string>(),
-                RestoreResult = "success",
-                BuildResult = "fail",
+                RestoreResult = StepResultStatus.Success,
+                BuildResult = StepResultStatus.Failed,
                 TestResult = null,
+                RunResult = RunResult.Run,
                 LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
             }
         };

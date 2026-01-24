@@ -146,7 +146,7 @@ public sealed class GitHubApiService : IGitHubApiService
         public required string Title { get; init; }
 
         [JsonPropertyName("state")]
-        public required string State { get; init; }
+        public required GithubIssueState State { get; init; }
 
         [JsonPropertyName("milestone")]
         public MilestoneResponse? Milestone { get; init; }

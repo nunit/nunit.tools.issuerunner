@@ -9,7 +9,7 @@ public class IssueListItem
 {
     public int Number { get; set; }
     public string Title { get; set; } = "";
-    public string State { get; set; } = ""; // Original state from metadata (open/closed)
+    public GithubIssueState State { get; set; } // Original state from metadata (open/closed)
     public IssueState StateValue { get; set; } = IssueState.New; // New state enum value
     public string DetailedState { get; set; } = ""; // Enhanced state (includes not compiling, skipped, etc.) - for display
     public string TestResult { get; set; } = "";

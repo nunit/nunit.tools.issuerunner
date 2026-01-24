@@ -21,7 +21,7 @@ public sealed class IssueProjectMetadata
     /// Gets or sets the issue state.
     /// </summary>
     [JsonPropertyName("state")]
-    public required string State { get; init; }
+    public required GithubIssueState State { get; init; }
 
     /// <summary>
     /// Gets or sets the milestone.

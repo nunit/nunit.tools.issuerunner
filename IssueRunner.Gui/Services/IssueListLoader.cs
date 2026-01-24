@@ -124,7 +124,11 @@ public sealed class IssueListLoader : IIssueListLoader
             try
             {
                 var baselineResultsJson = await File.ReadAllTextAsync(baselineResultsPath);
-                var allBaselineResults = JsonSerializer.Deserialize<List<IssueResult>>(baselineResultsJson);
+                var options = new JsonSerializerOptions
+                {
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                };
+                var allBaselineResults = JsonSerializer.Deserialize<List<IssueResult>>(baselineResultsJson, options);
                 if (allBaselineResults != null)
                 {
                     var baselineResultsByIssueNumber = allBaselineResults
@@ -151,7 +155,11 @@ public sealed class IssueListLoader : IIssueListLoader
             try
             {
                 var resultsJson = await File.ReadAllTextAsync(resultsPath);
-                var allResults = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson);
+                var options = new JsonSerializerOptions
+                {
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                };
+                var allResults = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson, options);
                 if (allResults != null)
                 {
                     // Group results by issue number
@@ -166,9 +174,9 @@ public sealed class IssueListLoader : IIssueListLoader
                         var issueResults = kvp.Value;
 
                         // Check if this issue has any restore failures
-                        // A restore failure is indicated by RestoreResult == "fail" OR RestoreError having content
+                        // A restore failure is indicated by RestoreResult == Failed OR RestoreError having content
                         var restoreFailure = issueResults.FirstOrDefault(r =>
-                            r.RestoreResult is "fail" ||
+                            r.RestoreResult == StepResultStatus.Failed ||
                             !string.IsNullOrWhiteSpace(r.RestoreError));
                         if (restoreFailure != null)
                         {
@@ -180,7 +188,7 @@ public sealed class IssueListLoader : IIssueListLoader
                             }
                         }
                         // Check for build failures (only if restore didn't fail)
-                        else if (issueResults.Any(r => r.BuildResult is "fail"))
+                        else if (issueResults.Any(r => r.BuildResult == StepResultStatus.Failed))
                         {
                             failedBuilds.Add(issueNum);
                         }
@@ -299,7 +307,7 @@ public sealed class IssueListLoader : IIssueListLoader
             // Failed restore/compile (from results.json build_result or restore_result),
             // Runnable (ready to run), Skipped (has marker file)
             IssueState stateValue;
-            var detailedState = metadata?.State ?? "Unknown";
+            var detailedState = metadata?.State.ToString() ?? "Unknown";
             string? notTestedReason = null;
 
             if (_markerService.ShouldSkipIssue(folderPath))
@@ -386,18 +394,19 @@ public sealed class IssueListLoader : IIssueListLoader
             if (baselineExists && currentExists)
             {
                 // Both exist - compare them
-                var baselineStatus = NormalizeStatus(baselineResult.Result);
-                var currentStatus = NormalizeStatus(currentResultTuple.Result);
+                // Parse enum strings from DetermineWorstResult
+                var baselineStatusEnum = Enum.TryParse<StepResultStatus>(baselineResult.Result, true, out var bs) ? bs : StepResultStatus.NotRun;
+                var currentStatusEnum = Enum.TryParse<StepResultStatus>(currentResultTuple.Result, true, out var cs) ? cs : StepResultStatus.NotRun;
                 
-                if (baselineStatus != currentStatus)
+                if (baselineStatusEnum != currentStatusEnum)
                 {
-                    changeType = DetermineChangeType(baselineStatus, currentStatus);
-                    changeTooltip = FormatChangeTooltip(baselineStatus, currentStatus);
+                    changeType = DetermineChangeType(baselineStatusEnum, currentStatusEnum);
+                    changeTooltip = FormatChangeTooltip(baselineStatusEnum.ToString(), currentStatusEnum.ToString());
                     
                     statusDisplay = changeType switch
                     {
                         ChangeType.Regression => "=> fail",
-                        ChangeType.Fixed or ChangeType.CompileToFail or ChangeType.Other => currentStatus,
+                        ChangeType.Fixed or ChangeType.CompileToFail or ChangeType.Other => currentStatusEnum.ToString(),
                         _ => statusDisplay
                     };
                 }
@@ -409,7 +418,7 @@ public sealed class IssueListLoader : IIssueListLoader
             {
                 Number = issueNum,
                 Title = issueTitle,
-                State = metadata?.State ?? "Unknown",
+                State = metadata?.State ?? GithubIssueState.Open,
                 StateValue = stateValue,
                 DetailedState = detailedState,
                 Milestone = milestone,
@@ -437,21 +446,21 @@ public sealed class IssueListLoader : IIssueListLoader
     private static (string Result, string LastRun) DetermineWorstResult(List<IssueResult> issueResults)
     {
         IssueResult? worstResult = null;
-        string? worstStatus = null;
+        StepResultStatus? worstStatus = null;
         string? lastRun = null;
 
         foreach (var result in issueResults)
         {
-            var status = result.TestResult ?? "not run";
+            var status = result.TestResult ?? StepResultStatus.NotRun;
             var resultLastRun = result.LastRun;
 
-            // Determine priority: fail > not run > success
+            // Determine priority: Failed > NotRun > Success
             var isWorse = false;
-            if (worstStatus == null || (status == "fail" && worstStatus != "fail"))
+            if (worstStatus == null || (status == StepResultStatus.Failed && worstStatus != StepResultStatus.Failed))
             {
                 isWorse = true;
             }
-            else if (status == "not run" && worstStatus == "success")
+            else if (status == StepResultStatus.NotRun && worstStatus == StepResultStatus.Success)
             {
                 isWorse = true;
             }
@@ -472,7 +481,7 @@ public sealed class IssueListLoader : IIssueListLoader
             }
         }
 
-        return (worstStatus ?? "not run", lastRun ?? "");
+        return (worstStatus?.ToString() ?? "NotRun", lastRun ?? "");
     }
 
     private static string NormalizeStatus(string status)
@@ -503,30 +512,24 @@ public sealed class IssueListLoader : IIssueListLoader
         return normalized;
     }
 
-    private static ChangeType DetermineChangeType(string baselineStatus, string currentStatus)
+    private static ChangeType DetermineChangeType(StepResultStatus baselineStatus, StepResultStatus currentStatus)
     {
         // Fixed: Was non-success, now success (Green)
-        if (baselineStatus != "success" && currentStatus == "success")
+        if (baselineStatus != StepResultStatus.Success && currentStatus == StepResultStatus.Success)
         {
             return ChangeType.Fixed;
         }
 
         // Regression: Was success, now fail (Red)
-        if (baselineStatus == "success" && currentStatus == "fail")
+        if (baselineStatus == StepResultStatus.Success && currentStatus == StepResultStatus.Failed)
         {
             return ChangeType.Regression;
         }
 
-        // CompileToFail: Was not compile/restore fail, now test fail (Orange)
-        if ((baselineStatus == "not compile" || baselineStatus == "not run") && currentStatus == "fail")
+        // CompileToFail: Was not run, now fail (Orange)
+        if (baselineStatus == StepResultStatus.NotRun && currentStatus == StepResultStatus.Failed)
         {
             return ChangeType.CompileToFail;
-        }
-
-        // Skipped: Was fail, now skipped
-        if (baselineStatus == "fail" && currentStatus == "skipped")
-        {
-            return ChangeType.Skipped;
         }
 
         // Other: Any other status change
@@ -549,11 +552,11 @@ public sealed class IssueListLoader : IIssueListLoader
     {
         return status switch
         {
-            "success" => "Test Succeeds",
-            "fail" => "Test Fails",
-            "not run" => "Not Run",
+            "Success" or "success" => "Test Succeeds",
+            "Failed" or "fail" => "Test Fails",
+            "NotRun" or "not run" => "Not Run",
             "not compile" => "Not Compiling",
-            "skipped" => "Skipped",
+            "Skipped" or "skipped" => "Skipped",
             _ => status
         };
     }

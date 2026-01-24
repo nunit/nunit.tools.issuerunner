@@ -25,8 +25,9 @@ public class ReportGeneratorServiceTests
                 ProjectStyle = "SDK-style",
                 TargetFrameworks = new List<string> { "net10.0" },
                 Packages = new List<string> { "NUnit=4.4.0" },
-                UpdateResult = "success",
-                TestResult = "success",
+                UpdateResult = StepResultStatus.Success,
+                TestResult = StepResultStatus.Success,
+                RunResult = RunResult.Run,
                 TestOutput = "Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3",
                 TestConclusion = "Success: No regression failure."
             }
@@ -38,7 +39,7 @@ public class ReportGeneratorServiceTests
             {
                 Number = 1,
                 Title = "Regression fix",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = null,
                 Labels = new List<string>(),
                 Url = "https://example.com"
@@ -69,8 +70,9 @@ public class ReportGeneratorServiceTests
                 ProjectStyle = "SDK-style",
                 TargetFrameworks = new List<string> { "net10.0" },
                 Packages = new List<string> { "NUnit=4.4.0" },
-                UpdateResult = "success",
-                TestResult = "fail",
+                UpdateResult = StepResultStatus.Success,
+                TestResult = StepResultStatus.Failed,
+                RunResult = RunResult.Run,
                 TestOutput = "Failed!  - Failed:     2, Passed:     1, Skipped:     0, Total:     3",
                 TestConclusion = "Failure: Regression failure."
             }
@@ -82,7 +84,7 @@ public class ReportGeneratorServiceTests
             {
                 Number = 2,
                 Title = "Regression repro",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = null,
                 Labels = new List<string>(),
                 Url = "https://example.com"

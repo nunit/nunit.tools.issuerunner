@@ -13,7 +13,7 @@ public class TestResultDiffTests
         {
             IssueNumber = 228,
             ProjectPath = "Test.csproj",
-            BaselineStatus = "success",
+            BaselineStatus = StepResultStatus.Success,
             CurrentStatus = "fail",
             ChangeType = ChangeType.Regression
         };

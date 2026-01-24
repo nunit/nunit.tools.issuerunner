@@ -204,7 +204,11 @@ public class TestStatusViewModel : ViewModelBase
             try
             {
                 var json = await File.ReadAllTextAsync(resultsPath);
-                var results = JsonSerializer.Deserialize<List<IssueResult>>(json);
+                var options = new JsonSerializerOptions
+                {
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                };
+                var results = JsonSerializer.Deserialize<List<IssueResult>>(json, options);
                 if (results != null)
                 {
                     allCurrentResults = results;
@@ -222,7 +226,11 @@ public class TestStatusViewModel : ViewModelBase
             try
             {
                 var json = await File.ReadAllTextAsync(baselineResultsPath);
-                var results = JsonSerializer.Deserialize<List<IssueResult>>(json);
+                var options = new JsonSerializerOptions
+                {
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                };
+                var results = JsonSerializer.Deserialize<List<IssueResult>>(json, options);
                 if (results != null)
                 {
                     allBaselineResults = results;
@@ -329,24 +337,24 @@ public class TestStatusViewModel : ViewModelBase
         {
             // Fallback: per-row counting (legacy behavior, used in tests without DI)
             currentPasses = allCurrentResults
-                .Where(r => r.TestResult == "success")
+                .Where(r => r.TestResult == StepResultStatus.Success)
                 .Select(r => new TestResultEntry
                 {
                     Issue = GetIssueDisplayName(r.Number),
                     Project = r.ProjectPath,
                     LastRun = r.LastRun ?? "",
-                    TestResult = r.TestResult ?? "success"
+                    TestResult = r.TestResult?.ToString() ?? "Success"
                 })
                 .ToList();
 
             currentFails = allCurrentResults
-                .Where(r => r.TestResult != null && r.TestResult != "success")
+                .Where(r => r.TestResult != null && r.TestResult != StepResultStatus.Success)
                 .Select(r => new TestResultEntry
                 {
                     Issue = GetIssueDisplayName(r.Number),
                     Project = r.ProjectPath,
                     LastRun = r.LastRun ?? "",
-                    TestResult = r.TestResult ?? "fail"
+                    TestResult = r.TestResult?.ToString() ?? "Failed"
                 })
                 .ToList();
 
@@ -354,24 +362,24 @@ public class TestStatusViewModel : ViewModelBase
             CurrentFailed = currentFails.Count;
 
             baselinePasses = allBaselineResults
-                .Where(r => r.TestResult == "success")
+                .Where(r => r.TestResult == StepResultStatus.Success)
                 .Select(r => new TestResultEntry
                 {
                     Issue = GetIssueDisplayName(r.Number),
                     Project = r.ProjectPath,
                     LastRun = r.LastRun ?? "",
-                    TestResult = r.TestResult ?? "success"
+                    TestResult = r.TestResult?.ToString() ?? "Success"
                 })
                 .ToList();
 
             baselineFails = allBaselineResults
-                .Where(r => r.TestResult != null && r.TestResult != "success")
+                .Where(r => r.TestResult != null && r.TestResult != StepResultStatus.Success)
                 .Select(r => new TestResultEntry
                 {
                     Issue = GetIssueDisplayName(r.Number),
                     Project = r.ProjectPath,
                     LastRun = r.LastRun ?? "",
-                    TestResult = r.TestResult ?? "fail"
+                    TestResult = r.TestResult?.ToString() ?? "Failed"
                 })
                 .ToList();
 

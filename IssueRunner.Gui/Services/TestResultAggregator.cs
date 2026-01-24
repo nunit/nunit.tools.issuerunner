@@ -34,46 +34,66 @@ public sealed class TestResultAggregator : ITestResultAggregator
                 }
                 else if (resultsByIssue.TryGetValue(issueNumber, out var issueResults))
                 {
-                    // Restore failure has highest priority after skipped
-                    var restoreFailure = issueResults.FirstOrDefault(r =>
-                        r.RestoreResult == "fail" ||
-                        !string.IsNullOrWhiteSpace(r.RestoreError));
+                    // Check RunResult first
+                    var mostRecent = issueResults
+                        .OrderByDescending(r => r.LastRun)
+                        .FirstOrDefault();
 
-                    if (restoreFailure != null)
+                    if (mostRecent?.RunResult == RunResult.Skipped)
                     {
-                        status = AggregatedIssueStatus.NotRestored;
-                        lastRun = restoreFailure.LastRun;
+                        status = AggregatedIssueStatus.Skipped;
+                        lastRun = mostRecent.LastRun;
                     }
-                    else if (issueResults.Any(r => r.BuildResult == "fail" || r.BuildResult == "not compile"))
+                    else if (mostRecent?.RunResult == RunResult.NotSynced)
                     {
-                        status = AggregatedIssueStatus.NotCompiling;
-                        lastRun = issueResults
-                            .Where(r => r.LastRun != null)
-                            .Select(r => r.LastRun!)
-                            .DefaultIfEmpty()
-                            .Max();
+                        status = AggregatedIssueStatus.NotTested;
+                        lastRun = mostRecent.LastRun;
                     }
-                    else
+                    else if (mostRecent?.RunResult == RunResult.Run)
                     {
-                        // Determine status from test_result on the most recent row
-                        var mostRecent = issueResults
-                            .OrderByDescending(r => r.LastRun)
-                            .FirstOrDefault();
+                        // Restore failure has highest priority after skipped/not synced
+                        var restoreFailure = issueResults.FirstOrDefault(r =>
+                            r.RestoreResult == StepResultStatus.Failed ||
+                            !string.IsNullOrWhiteSpace(r.RestoreError));
 
-                        lastRun = mostRecent?.LastRun;
-
-                        if (mostRecent?.TestResult == "success")
+                        if (restoreFailure != null)
                         {
-                            status = AggregatedIssueStatus.Passed;
+                            status = AggregatedIssueStatus.NotRestored;
+                            lastRun = restoreFailure.LastRun;
                         }
-                        else if (mostRecent?.TestResult == "fail")
+                        else if (issueResults.Any(r => r.BuildResult == StepResultStatus.Failed))
                         {
-                            status = AggregatedIssueStatus.Failed;
+                            status = AggregatedIssueStatus.NotCompiling;
+                            lastRun = issueResults
+                                .Where(r => r.LastRun != null)
+                                .Select(r => r.LastRun!)
+                                .DefaultIfEmpty()
+                                .Max();
                         }
                         else
                         {
-                            status = AggregatedIssueStatus.NotTested;
+                            // Determine status from test_result on the most recent row
+                            lastRun = mostRecent?.LastRun;
+
+                            if (mostRecent?.TestResult == StepResultStatus.Success)
+                            {
+                                status = AggregatedIssueStatus.Passed;
+                            }
+                            else if (mostRecent?.TestResult == StepResultStatus.Failed)
+                            {
+                                status = AggregatedIssueStatus.Failed;
+                            }
+                            else
+                            {
+                                status = AggregatedIssueStatus.NotTested;
+                            }
                         }
+                    }
+                    else
+                    {
+                        // RunResult is NotRun or null - treat as not tested
+                        status = AggregatedIssueStatus.NotTested;
+                        lastRun = mostRecent?.LastRun;
                     }
                 }
                 else

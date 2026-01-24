@@ -1,6 +1,7 @@
 using IssueRunner.Models;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace IssueRunner.Services;
 
@@ -68,30 +69,26 @@ public sealed class TestResultDiffService : ITestResultDiffService
                 var projectPath = parts[1];
 
                 // Determine baseline status from IssueResult.TestResult
-                string baselineStatus;
+                StepResultStatus baselineStatus;
                 if (baselineDict.TryGetValue(key, out var baselineResult))
                 {
-                    baselineStatus = baselineResult.TestResult ?? "not run";
+                    baselineStatus = baselineResult.TestResult ?? StepResultStatus.NotRun;
                 }
                 else
                 {
-                    baselineStatus = "not run";
+                    baselineStatus = StepResultStatus.NotRun;
                 }
 
                 // Determine current status from IssueResult.TestResult
-                string currentStatus;
+                StepResultStatus currentStatus;
                 if (currentDict.TryGetValue(key, out var currentResult))
                 {
-                    currentStatus = currentResult.TestResult ?? "not run";
+                    currentStatus = currentResult.TestResult ?? StepResultStatus.NotRun;
                 }
                 else
                 {
-                    currentStatus = "not run";
+                    currentStatus = StepResultStatus.NotRun;
                 }
-
-                // Normalize status values for comparison
-                baselineStatus = NormalizeStatus(baselineStatus);
-                currentStatus = NormalizeStatus(currentStatus);
 
                 // Skip if no change
                 if (baselineStatus == currentStatus)
@@ -102,7 +99,7 @@ public sealed class TestResultDiffService : ITestResultDiffService
                 // Determine change type
                 var changeType = DetermineChangeType(baselineStatus, currentStatus);
 
-                // Skip if change type is Skipped (fail -> skipped)
+                // Skip if change type is Skipped (fail -> skipped) - but this shouldn't happen with RunResult
                 if (changeType == ChangeType.Skipped)
                 {
                     continue;
@@ -113,7 +110,7 @@ public sealed class TestResultDiffService : ITestResultDiffService
                     IssueNumber = issueNumber,
                     ProjectPath = projectPath,
                     BaselineStatus = baselineStatus,
-                    CurrentStatus = currentStatus,
+                    CurrentStatus = currentStatus.ToString(),
                     ChangeType = changeType
                 });
             }
@@ -127,65 +124,24 @@ public sealed class TestResultDiffService : ITestResultDiffService
         }
     }
 
-    /// <summary>
-    /// Normalizes test result status for comparison (maps various status values to standard ones).
-    /// </summary>
-    private static string NormalizeStatus(string status)
-    {
-        if (string.IsNullOrEmpty(status))
-        {
-            return "not run";
-        }
-
-        // Normalize to standard status values
-        var normalized = status.ToLowerInvariant();
-        if (normalized == "success" || normalized == "pass")
-        {
-            return "success";
-        }
-        if (normalized == "fail" || normalized == "failed")
-        {
-            return "fail";
-        }
-        if (normalized == "not run" || normalized == "notrun")
-        {
-            return "not run";
-        }
-        if (normalized.Contains("not compiling") || normalized.Contains("compile"))
-        {
-            return "not compile";
-        }
-
-        // For any other status, return as-is (will be treated as "Other" in change detection)
-        return normalized;
-    }
-
-    private static ChangeType DetermineChangeType(string baselineStatus, string currentStatus)
+    private static ChangeType DetermineChangeType(StepResultStatus baselineStatus, StepResultStatus currentStatus)
     {
         // Fixed: Was non-success, now success (Green)
-        if (baselineStatus != "success" && currentStatus == "success")
+        if (baselineStatus != StepResultStatus.Success && currentStatus == StepResultStatus.Success)
         {
             return ChangeType.Fixed;
         }
 
         // Regression: Was success, now fail (Red)
-        if (baselineStatus == "success" && currentStatus == "fail")
+        if (baselineStatus == StepResultStatus.Success && currentStatus == StepResultStatus.Failed)
         {
             return ChangeType.Regression;
         }
 
-        // CompileToFail: Was not compile/restore fail, now test fail (Orange)
-        // Note: We don't have "not compile" status in test-passes/test-fails, so this might need results.json
-        // For now, we'll treat "not run" -> "fail" as CompileToFail
-        if ((baselineStatus == "not run" || baselineStatus == "not compile") && currentStatus == "fail")
+        // CompileToFail: Was not run, now fail (Orange)
+        if (baselineStatus == StepResultStatus.NotRun && currentStatus == StepResultStatus.Failed)
         {
             return ChangeType.CompileToFail;
-        }
-
-        // Skipped: Was fail, now skipped (exclude from list)
-        if (baselineStatus == "fail" && currentStatus == "skipped")
-        {
-            return ChangeType.Skipped;
         }
 
         // Other: Any other status change (Grey)
@@ -206,7 +162,11 @@ public sealed class TestResultDiffService : ITestResultDiffService
         try
         {
             var json = await File.ReadAllTextAsync(filePath);
-            var results = JsonSerializer.Deserialize<List<IssueResult>>(json);
+            var options = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            };
+            var results = JsonSerializer.Deserialize<List<IssueResult>>(json, options);
             return results ?? new List<IssueResult>();
         }
         catch (Exception ex)

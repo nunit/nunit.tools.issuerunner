@@ -14,7 +14,7 @@ public class IssueProjectMetadataTests
         {
             Number = 228,
             Title = "Test Issue",
-            State = "open",
+            State = GithubIssueState.Open,
             Milestone = "v1.0",
             Labels = new List<string> { "bug", "priority:high" },
             Url = "https://github.com/test/test/issues/228",
@@ -34,7 +34,7 @@ public class IssueProjectMetadataTests
         Assert.That(deserialized, Is.Not.Null);
         Assert.That(deserialized!.Number, Is.EqualTo(228));
         Assert.That(deserialized.Title, Is.EqualTo("Test Issue"));
-        Assert.That(deserialized.State, Is.EqualTo("open"));
+        Assert.That(deserialized.State, Is.EqualTo(GithubIssueState.Open));
         Assert.That(deserialized.Milestone, Is.EqualTo("v1.0"));
         Assert.That(deserialized.Labels, Is.EquivalentTo(new[] { "bug", "priority:high" }));
         Assert.That(deserialized.ProjectPath, Is.EqualTo("Issue228.csproj"));
@@ -49,7 +49,7 @@ public class IssueProjectMetadataTests
         {
             Number = 1,
             Title = "Test",
-            State = "open",
+            State = GithubIssueState.Open,
             Milestone = null,
             Labels = new List<string>(),
             Url = "https://github.com/test/test/issues/1",

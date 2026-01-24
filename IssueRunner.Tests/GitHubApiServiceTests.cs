@@ -41,7 +41,7 @@ public class GitHubApiServiceTests
         {
             number = 228,
             title = "Test Issue Title",
-            state = "open",
+            state = GithubIssueState.Open,
             milestone = (object?)null,
             labels = new[] { new { name = "bug" } },
             html_url = "https://github.com/testowner/testrepo/issues/228"
@@ -60,7 +60,7 @@ public class GitHubApiServiceTests
         Assert.That(result, Is.Not.Null);
         Assert.That(result!.Number, Is.EqualTo(228));
         Assert.That(result.Title, Is.EqualTo("Test Issue Title"));
-        Assert.That(result.State, Is.EqualTo("open"));
+        Assert.That(result.State, Is.EqualTo(GithubIssueState.Open));
         Assert.That(result.Labels, Contains.Item("bug"));
         Assert.That(result.Url, Is.EqualTo("https://github.com/testowner/testrepo/issues/228"));
         Assert.That(service.GetLastError(), Is.Null, "No error should be set on success");
@@ -114,7 +114,7 @@ public class GitHubApiServiceTests
         {
             number = 1,
             title = "Issue with milestone",
-            state = "closed",
+            state = GithubIssueState.Closed,
             milestone = new { title = "v1.0" },
             labels = Array.Empty<object>(),
             html_url = "https://github.com/testowner/testrepo/issues/1"
@@ -142,7 +142,7 @@ public class GitHubApiServiceTests
         {
             number = 1,
             title = "Issue without milestone",
-            state = "open",
+            state = GithubIssueState.Open,
             milestone = (object?)null,
             labels = Array.Empty<object>(),
             html_url = "https://github.com/testowner/testrepo/issues/1"
@@ -170,7 +170,7 @@ public class GitHubApiServiceTests
         {
             number = 1,
             title = "Issue with labels",
-            state = "open",
+            state = GithubIssueState.Open,
             milestone = (object?)null,
             labels = new[]
             {
@@ -222,9 +222,9 @@ public class GitHubApiServiceTests
         var issueNumbers = new[] { 1, 2, 3 };
         var responses = new Dictionary<int, string>
         {
-            { 1, JsonSerializer.Serialize(new { number = 1, title = "Issue 1", state = "open", milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/1" }) },
-            { 2, JsonSerializer.Serialize(new { number = 2, title = "Issue 2", state = "closed", milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/2" }) },
-            { 3, JsonSerializer.Serialize(new { number = 3, title = "Issue 3", state = "open", milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/3" }) }
+            { 1, JsonSerializer.Serialize(new { number = 1, title = "Issue 1", state = GithubIssueState.Open, milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/1" }) },
+            { 2, JsonSerializer.Serialize(new { number = 2, title = "Issue 2", state = GithubIssueState.Closed, milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/2" }) },
+            { 3, JsonSerializer.Serialize(new { number = 3, title = "Issue 3", state = GithubIssueState.Open, milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/3" }) }
         };
 
         _messageHandler.SetResponses(issueNumbers.Select(num => new HttpResponseMessage(HttpStatusCode.OK)
@@ -251,12 +251,12 @@ public class GitHubApiServiceTests
         {
             new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(JsonSerializer.Serialize(new { number = 1, title = "Issue 1", state = "open", milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/1" }), Encoding.UTF8, "application/json")
+                Content = new StringContent(JsonSerializer.Serialize(new { number = 1, title = "Issue 1", state = GithubIssueState.Open, milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/1" }), Encoding.UTF8, "application/json")
             },
             new HttpResponseMessage(HttpStatusCode.NotFound),
             new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(JsonSerializer.Serialize(new { number = 3, title = "Issue 3", state = "open", milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/3" }), Encoding.UTF8, "application/json")
+                Content = new StringContent(JsonSerializer.Serialize(new { number = 3, title = "Issue 3", state = GithubIssueState.Open, milestone = (object?)null, labels = Array.Empty<object>(), html_url = "https://github.com/testowner/testrepo/issues/3" }), Encoding.UTF8, "application/json")
             }
         });
 
@@ -279,7 +279,7 @@ public class GitHubApiServiceTests
         {
             number = 228,
             title = "Test",
-            state = "open",
+            state = GithubIssueState.Open,
             milestone = (object?)null,
             labels = Array.Empty<object>(),
             html_url = "https://github.com/nunit/nunit3-vs-adapter/issues/228"

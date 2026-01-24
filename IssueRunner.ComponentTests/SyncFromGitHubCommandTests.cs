@@ -143,7 +143,7 @@ public class SyncFromGitHubCommandTests
             {
                 Number = 123,
                 Title = "Test Issue",
-                State = "open",
+                State = GithubIssueState.Open,
                 Milestone = "No milestone",
                 Labels = ["bug"],
                 Url = "https://github.com/test/test/issues/123"
@@ -198,7 +198,7 @@ public class SyncFromGitHubCommandTests
             {
                 Number = 456,
                 Title = "Existing Issue",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = "No milestone",
                 Labels = new List<string>(),
                 Url = "https://github.com/test/test/issues/456"
@@ -219,7 +219,7 @@ public class SyncFromGitHubCommandTests
             {
                 Number = 123,
                 Title = "New Issue",
-                State = "open",
+                State = GithubIssueState.Open,
                 Milestone = "No milestone",
                 Labels = new List<string>(),
                 Url = "https://github.com/test/test/issues/123"
@@ -274,14 +274,14 @@ public class SyncFromGitHubCommandTests
 
         Directory.CreateDirectory(Path.Combine(_tempDir!, "Issue123"));
 
-        // Create existing metadata file with issue 123 in "open" state
+        // Create existing metadata file with issue 123 in GithubIssueState.Open state
         var existingMetadata = new List<IssueMetadata>
         {
             new IssueMetadata
             {
                 Number = 123,
                 Title = "Old Title",
-                State = "open",
+                State = GithubIssueState.Open,
                 Milestone = "No milestone",
                 Labels = new List<string> { "old-label" },
                 Url = "https://github.com/test/test/issues/123"
@@ -296,14 +296,14 @@ public class SyncFromGitHubCommandTests
         environment.GetDataDirectory(Arg.Any<string>())
             .Returns(callInfo => dataDir);
 
-        // Mock API to return updated metadata (issue is now "closed")
+        // Mock API to return updated metadata (issue is now GithubIssueState.Closed)
         var githubApi = Substitute.For<IGitHubApiService>();
         githubApi.FetchIssueMetadataAsync(123, Arg.Any<CancellationToken>())
             .Returns(new IssueMetadata
             {
                 Number = 123,
                 Title = "Updated Title",
-                State = "closed",
+                State = GithubIssueState.Closed,
                 Milestone = "No milestone",
                 Labels = new List<string> { "new-label" },
                 Url = "https://github.com/test/test/issues/123"
@@ -339,7 +339,7 @@ public class SyncFromGitHubCommandTests
         Assert.That(metadata!.Count, Is.EqualTo(1));
         Assert.That(metadata[0].Number, Is.EqualTo(123));
         Assert.That(metadata[0].Title, Is.EqualTo("Updated Title"));
-        Assert.That(metadata[0].State, Is.EqualTo("closed"));
+        Assert.That(metadata[0].State, Is.EqualTo(GithubIssueState.Closed));
         Assert.That(metadata[0].Labels, Contains.Item("new-label"));
     }
 }

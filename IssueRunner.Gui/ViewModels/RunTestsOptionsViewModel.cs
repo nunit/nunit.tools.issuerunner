@@ -208,20 +208,24 @@ public class RunTestsOptionsViewModel : ViewModelBase
             if (File.Exists(resultsPath))
             {
                 var resultsJson = await File.ReadAllTextAsync(resultsPath);
-                var results = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson) ?? [];
+                var options = new JsonSerializerOptions
+                {
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                };
+                var results = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson, options) ?? [];
                 resultsByIssue = results
                     .GroupBy(r => r.Number)
                     .ToDictionary(
                         g => g.Key,
-                        g => g.Any(r => r.TestResult == "fail") 
+                        g => g.Any(r => r.TestResult == StepResultStatus.Failed)
                             ? "fail" 
-                            : g.FirstOrDefault()?.TestResult);
+                            : g.FirstOrDefault()?.TestResult?.ToString());
             }
 
             // Calculate counts for each scope (Scope is now in filter section, but we keep this for reference)
             var allCount = totalCount;
-            var regressionCount = allIssues.Count(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == "closed");
-            var openCount = allIssues.Count(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == "open");
+            var regressionCount = allIssues.Count(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Closed);
+            var openCount = allIssues.Count(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Open);
 
             ScopeCountsText = $"All: {allCount} | Regression: {regressionCount} | Open: {openCount}";
             

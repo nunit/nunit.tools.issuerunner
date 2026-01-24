@@ -94,7 +94,8 @@ public abstract class HeadlessTestBase
             new TestRunOrchestrator(
                 sp,
                 envService,
-                sp.GetRequiredService<IIssueDiscoveryService>()));
+                sp.GetRequiredService<IIssueDiscoveryService>(),
+                markerService));
         services.AddSingleton<ISyncCoordinator>(sp =>
             new SyncCoordinator(
                 sp,

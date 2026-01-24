@@ -66,7 +66,11 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
                 try
                 {
                     var resultsJson = await File.ReadAllTextAsync(resultsPath);
-                    currentResults = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson) ?? [];
+                    var options = new JsonSerializerOptions
+                    {
+                        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                    };
+                    currentResults = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson, options) ?? [];
                 }
                 catch (Exception ex)
                 {

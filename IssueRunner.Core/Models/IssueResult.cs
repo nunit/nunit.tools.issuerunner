@@ -36,10 +36,10 @@ public sealed class IssueResult
     public required List<string> Packages { get; init; }
 
     /// <summary>
-    /// Gets or sets the package update result (success/fail).
+    /// Gets or sets the package update result.
     /// </summary>
     [JsonPropertyName("update_result")]
-    public string? UpdateResult { get; init; }
+    public StepResultStatus? UpdateResult { get; init; }
 
     /// <summary>
     /// Gets or sets the package update output.
@@ -54,10 +54,10 @@ public sealed class IssueResult
     public string? UpdateError { get; init; }
 
     /// <summary>
-    /// Gets or sets the restore step result (success/fail/not run).
+    /// Gets or sets the restore step result.
     /// </summary>
     [JsonPropertyName("restore_result")]
-    public string? RestoreResult { get; init; }
+    public StepResultStatus? RestoreResult { get; init; }
 
     /// <summary>
     /// Gets or sets the restore step output.
@@ -72,10 +72,10 @@ public sealed class IssueResult
     public string? RestoreError { get; init; }
 
     /// <summary>
-    /// Gets or sets the build step result (success/fail/not run).
+    /// Gets or sets the build step result.
     /// </summary>
     [JsonPropertyName("build_result")]
-    public string? BuildResult { get; init; }
+    public StepResultStatus? BuildResult { get; init; }
 
     /// <summary>
     /// Gets or sets the build step output.
@@ -90,10 +90,10 @@ public sealed class IssueResult
     public string? BuildError { get; init; }
 
     /// <summary>
-    /// Gets or sets the test execution result (success/fail/not run).
+    /// Gets or sets the test execution result.
     /// </summary>
     [JsonPropertyName("test_result")]
-    public string? TestResult { get; init; }
+    public StepResultStatus? TestResult { get; init; }
 
     /// <summary>
     /// Gets or sets the test execution output.
@@ -142,6 +142,12 @@ public sealed class IssueResult
     /// </summary>
     [JsonPropertyName("last_run")]
     public string? LastRun { get; init; }
+
+    /// <summary>
+    /// Gets or sets whether the issue is runnable and why it might not be run.
+    /// </summary>
+    [JsonPropertyName("run_result")]
+    public RunResult? RunResult { get; init; }
 }
 
 

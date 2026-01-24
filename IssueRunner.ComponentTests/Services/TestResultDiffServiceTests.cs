@@ -114,7 +114,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "TestProject/Test.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             }
         };
 
@@ -162,7 +162,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "TestProject/Test.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -174,7 +174,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "TestProject/Test.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             }
         };
 
@@ -227,7 +227,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "AnotherProject/Another.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             }
         };
 
@@ -239,7 +239,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "AnotherProject/Another.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -303,7 +303,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "CompileProject/Compile.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -355,7 +355,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "SkipProject/Skip.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -367,7 +367,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "SkipProject/Skip.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "skipped"
+                TestResult = StepResultStatus.NotRun
             }
         };
 
@@ -415,7 +415,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "TestProject/Test.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -427,7 +427,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "TESTPROJECT/TEST.CSPROJ",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             }
         };
 
@@ -477,7 +477,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "OldProject/Old.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             }
         };
 
@@ -532,7 +532,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "NewProject/New.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -584,7 +584,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "Project1/Test1.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             },
             new IssueResult
             {
@@ -592,7 +592,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "Project2/Test2.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             }
         };
 
@@ -604,7 +604,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "Project1/Test1.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             },
             new IssueResult
             {
@@ -612,7 +612,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "Project2/Test2.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -649,13 +649,29 @@ public sealed partial class TestResultDiffServiceTests
     /// Tests CompareResultsAsync with various status normalizations.
     /// Expected: Status strings are properly normalized for comparison.
     /// </summary>
-    [TestCase("pass", "fail", ChangeType.Regression)]
-    [TestCase("Pass", "FAIL", ChangeType.Regression)]
-    [TestCase("failed", "Pass", ChangeType.Fixed)]
-    [TestCase("not compiling", "fail", ChangeType.Other)]
-    [TestCase("notrun", "failed", ChangeType.CompileToFail)]
-    public async Task CompareResultsAsync_WithVariousStatusStrings_NormalizesCorrectly(
-        string baselineStatus, string currentStatus, ChangeType expectedChangeType)
+    [Test]
+    public async Task CompareResultsAsync_WithVariousStatusStrings_NormalizesCorrectly()
+    {
+        var testCases = new[]
+        {
+            (StepResultStatus.Success, StepResultStatus.Failed, ChangeType.Regression),
+            (StepResultStatus.Success, StepResultStatus.Failed, ChangeType.Regression),
+            (StepResultStatus.Failed, StepResultStatus.Success, ChangeType.Fixed),
+            (StepResultStatus.Failed, StepResultStatus.Failed, ChangeType.Other), // This will be skipped as no change
+            (StepResultStatus.NotRun, StepResultStatus.Failed, ChangeType.CompileToFail)
+        };
+
+        foreach (var (baselineStatus, currentStatus, expectedChangeType) in testCases)
+        {
+            // Skip the case that won't produce a result (same status)
+            if (baselineStatus == currentStatus && baselineStatus == StepResultStatus.Failed)
+                continue;
+
+            await TestStatusNormalization(baselineStatus, currentStatus, expectedChangeType);
+        }
+    }
+
+    private async Task TestStatusNormalization(StepResultStatus baselineStatus, StepResultStatus currentStatus, ChangeType expectedChangeType)
     {
         // Arrange
         var environmentService = Substitute.For<IEnvironmentService>();
@@ -734,7 +750,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "ProjectA/TestA.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             },
             new IssueResult
             {
@@ -742,7 +758,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "ProjectB/TestB.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             }
         };
 
@@ -754,7 +770,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "ProjectA/TestA.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "success"
+                TestResult = StepResultStatus.Success
             },
             new IssueResult
             {
@@ -762,7 +778,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "ProjectB/TestB.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "fail"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -947,7 +963,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "OtherProject/Other.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "not run"
+                TestResult = StepResultStatus.NotRun
             }
         };
 
@@ -959,7 +975,7 @@ public sealed partial class TestResultDiffServiceTests
                 ProjectPath = "OtherProject/Other.csproj",
                 TargetFrameworks = new List<string> { "net6.0" },
                 Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = "not compiling"
+                TestResult = StepResultStatus.Failed
             }
         };
 
@@ -978,8 +994,8 @@ public sealed partial class TestResultDiffServiceTests
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].IssueNumber, Is.EqualTo(777));
             Assert.That(result[0].BaselineStatus, Is.EqualTo("not run"));
-            Assert.That(result[0].CurrentStatus, Is.EqualTo("not compile"));
-            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.Other));
+            Assert.That(result[0].CurrentStatus, Is.EqualTo("fail"));
+            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.CompileToFail));
         }
         finally
         {

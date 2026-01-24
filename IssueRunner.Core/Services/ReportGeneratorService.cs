@@ -53,14 +53,14 @@ public sealed class ReportGeneratorService
         AppendPackageVersions(sb, results);
         
         // Only show regression section if there are actually closed issues tested
-        var hasClosedIssues = results.Any(r => metadataDict.TryGetValue(r.Number, out var m) && m.State == "closed");
+        var hasClosedIssues = results.Any(r => metadataDict.TryGetValue(r.Number, out var m) && m.State == GithubIssueState.Closed);
         if (hasClosedIssues)
         {
             AppendRegressionTests(sb, results, metadataDict);
         }
         
         // Only show open issues section if there are actually open issues tested
-        var hasOpenIssues = results.Any(r => metadataDict.TryGetValue(r.Number, out var m) && m.State == "open");
+        var hasOpenIssues = results.Any(r => metadataDict.TryGetValue(r.Number, out var m) && m.State == GithubIssueState.Open);
         if (hasOpenIssues)
         {
             AppendOpenIssues(sb, results, metadataDict);
@@ -75,16 +75,16 @@ public sealed class ReportGeneratorService
         Dictionary<int, IssueMetadata> metadata)
     {
         var closedIssues = results
-            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == "closed")
+            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == GithubIssueState.Closed)
             .ToList();
-        var closedPassed = closedIssues.Count(r => r.TestResult == "success");
-        var closedFailed = closedIssues.Count(r => r.TestResult == "fail");
+        var closedPassed = closedIssues.Count(r => r.TestResult == StepResultStatus.Success);
+        var closedFailed = closedIssues.Count(r => r.TestResult == StepResultStatus.Failed);
 
         var openIssues = results
-            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == "open")
+            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == GithubIssueState.Open)
             .ToList();
-        var openPassed = openIssues.Count(r => r.TestResult == "success");
-        var openFailed = openIssues.Count(r => r.TestResult == "fail");
+        var openPassed = openIssues.Count(r => r.TestResult == StepResultStatus.Success);
+        var openFailed = openIssues.Count(r => r.TestResult == StepResultStatus.Failed);
 
         sb.AppendLine($"- Regression tests: total {closedIssues.Count}, success {closedPassed}, fail {closedFailed}");
         sb.AppendLine($"- Open issues: total {openIssues.Count}, success {openPassed}, fail {openFailed}");
@@ -124,7 +124,7 @@ public sealed class ReportGeneratorService
         sb.AppendLine();
 
         var closedResults = results
-            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == "closed")
+            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == GithubIssueState.Closed)
             .OrderBy(r => r.Number)
             .ToList();
 
@@ -135,8 +135,8 @@ public sealed class ReportGeneratorService
             return;
         }
 
-        var passed = closedResults.Count(r => r.TestResult == "success");
-        var failedCount = closedResults.Count(r => r.TestResult == "fail");
+        var passed = closedResults.Count(r => r.TestResult == StepResultStatus.Success);
+        var failedCount = closedResults.Count(r => r.TestResult == StepResultStatus.Failed);
         
         sb.AppendLine($"- Total: {closedResults.Count}, Success: {passed}, Fail: {failedCount}");
         sb.AppendLine();
@@ -151,8 +151,8 @@ public sealed class ReportGeneratorService
                 continue;
             }
 
-            var status = result.TestResult == "success" ? "✅" : "❗";
-            var conclusion = result.TestResult == "success"
+            var status = result.TestResult == StepResultStatus.Success ? "✅" : "❗";
+            var conclusion = result.TestResult == StepResultStatus.Success
                 ? "Success: No regression failure"
                 : "Failure: Regression failure.";
             var counts = FormatTestCountSuffix(result);
@@ -165,7 +165,7 @@ public sealed class ReportGeneratorService
 
         sb.AppendLine();
 
-        var failed = closedResults.Where(r => r.TestResult == "fail").ToList();
+        var failed = closedResults.Where(r => r.TestResult == StepResultStatus.Failed).ToList();
         if (failed.Count > 0)
         {
             sb.AppendLine("### Closed failures (details)");
@@ -231,16 +231,16 @@ public sealed class ReportGeneratorService
         sb.AppendLine();
 
         var openResults = results
-            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == "open")
+            .Where(r => metadata.TryGetValue(r.Number, out var m) && m.State == GithubIssueState.Open)
             .OrderBy(r => r.Number)
             .ToList();
 
         var succeeded = openResults
-            .Where(r => r.TestResult == "success")
+            .Where(r => r.TestResult == StepResultStatus.Success)
             .ToList();
 
         var failed = openResults
-            .Where(r => r.TestResult == "fail")
+            .Where(r => r.TestResult == StepResultStatus.Failed)
             .ToList();
 
         sb.AppendLine($"- Total: {openResults.Count}, Success: {succeeded.Count}, Fail: {failed.Count}");

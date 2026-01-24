@@ -233,9 +233,10 @@ public class MainWindowHeadlessTests : HeadlessTestBase
                     ProjectPath = "Issue1/test.csproj",
                     TargetFrameworks = new List<string> { "net8.0" },
                     Packages = new List<string>(),
-                    RestoreResult = "success",
-                    BuildResult = "success",
-                    TestResult = "success",
+                    RestoreResult = StepResultStatus.Success,
+                    BuildResult = StepResultStatus.Success,
+                    TestResult = StepResultStatus.Success,
+                    RunResult = RunResult.Run,
                     LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
                 },
                 new IssueResult
@@ -244,9 +245,10 @@ public class MainWindowHeadlessTests : HeadlessTestBase
                     ProjectPath = "Issue2/test.csproj",
                     TargetFrameworks = new List<string> { "net8.0" },
                     Packages = new List<string>(),
-                    RestoreResult = "success",
-                    BuildResult = "success",
-                    TestResult = "fail",
+                    RestoreResult = StepResultStatus.Success,
+                    BuildResult = StepResultStatus.Success,
+                    TestResult = StepResultStatus.Failed,
+                    RunResult = RunResult.Run,
                     LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
                 }
             };

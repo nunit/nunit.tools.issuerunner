@@ -344,7 +344,7 @@ public class EnvironmentServiceTests
 
         // Assert
         Assert.That(service.RepositoryConfig, Is.Not.Null);
-        Assert.That(service.RepositoryConfig.Owner, Is.EqualTo("testowner"));
+        Assert.That(service.RepositoryConfig!.Owner, Is.EqualTo("testowner"));
         Assert.That(service.RepositoryConfig.Name, Is.EqualTo("testname"));
     }
 

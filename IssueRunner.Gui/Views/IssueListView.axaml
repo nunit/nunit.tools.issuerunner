@@ -71,6 +71,7 @@
                        x:Name="IssueListRunTestsButton"
                        Content="▶ Run Tests"
                        Command="{Binding RunTestsCommand}"
+                       IsEnabled="{Binding AreButtonsEnabled}"
                        Background="#0078D4"
                        Foreground="White"
                        MinWidth="90"
@@ -82,6 +83,7 @@
                        x:Name="IssueListOptionsButton"
                        Content="⚙ Options"
                        Command="{Binding ShowOptionsCommand}"
+                       IsEnabled="{Binding AreButtonsEnabled}"
                        Background="#0078D4"
                        Foreground="White"
                        MinWidth="80"
@@ -93,6 +95,7 @@
                        x:Name="IssueListResetPackagesButton"
                        Content="🔄 Reset Packages"
                        Command="{Binding ResetPackagesCommand}"
+                       IsEnabled="{Binding AreButtonsEnabled}"
                        Background="#0078D4"
                        Foreground="White"
                        MinWidth="110"
@@ -104,6 +107,7 @@
                        x:Name="IssueListSyncFromGitHubButton"
                        Content="🔄 Sync from GitHub"
                        Command="{Binding SyncFromGitHubCommand}"
+                       IsEnabled="{Binding AreButtonsEnabled}"
                        Background="#0078D4"
                        Foreground="White"
                        MinWidth="120"
@@ -124,7 +128,8 @@
                 <!-- Scope Filter -->
                 <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,3,0">
                     <TextBlock Text="Scope" FontSize="11" Foreground="#666"/>
-                    <ComboBox SelectedItem="{Binding SelectedScope}" SelectedIndex="0">
+                    <ComboBox SelectedItem="{Binding SelectedScope}" 
+                             SelectedIndex="0">
                         <ComboBox.Items>
                             <x:Static Member="models:TestScope.All"/>
                             <x:Static Member="models:TestScope.Regression"/>
@@ -136,13 +141,15 @@
                 <!-- State Filter -->
                 <StackPanel Grid.Column="3" Spacing="4" Margin="0,0,3,0">
                     <TextBlock Text="State" FontSize="11" Foreground="#666"/>
-                    <ComboBox SelectedItem="{Binding SelectedState}" ItemsSource="{Binding AvailableStates}" SelectedIndex="0"/>
+                    <ComboBox SelectedItem="{Binding SelectedState}" 
+                             ItemsSource="{Binding AvailableStates}" SelectedIndex="0"/>
                 </StackPanel>
 
                 <!-- Test Result Filter -->
                 <StackPanel Grid.Column="5" Spacing="4" Margin="0,0,3,0">
                     <TextBlock Text="Test Result" FontSize="11" Foreground="#666"/>
-                    <ComboBox SelectedItem="{Binding SelectedTestResult}" SelectedIndex="0">
+                    <ComboBox SelectedItem="{Binding SelectedTestResult}" 
+                             SelectedIndex="0">
                         <ComboBox.Items>
                             <x:String>All</x:String>
                             <x:String>Success</x:String>
@@ -155,7 +162,8 @@
                 <!-- TestTypes Filter -->
                 <StackPanel Grid.Column="7" Spacing="4" Margin="0,0,3,0">
                     <TextBlock Text="Test Types" FontSize="11" Foreground="#666"/>
-                    <ComboBox SelectedItem="{Binding SelectedTestTypes}" SelectedIndex="0">
+                    <ComboBox SelectedItem="{Binding SelectedTestTypes}" 
+                             SelectedIndex="0">
                         <ComboBox.Items>
                             <x:String>All</x:String>
                             <x:String>Scripts only</x:String>
@@ -167,7 +175,8 @@
                 <!-- Framework Filter -->
                 <StackPanel Grid.Column="9" Spacing="4" Margin="0,0,3,0">
                     <TextBlock Text="Framework" FontSize="11" Foreground="#666"/>
-                    <ComboBox SelectedItem="{Binding SelectedFramework}" SelectedIndex="0">
+                    <ComboBox SelectedItem="{Binding SelectedFramework}" 
+                             SelectedIndex="0">
                         <ComboBox.Items>
                             <x:String>All</x:String>
                             <x:String>.Net</x:String>
@@ -179,13 +188,15 @@
                 <!-- Milestone Filter -->
                 <StackPanel Grid.Column="11" Spacing="4" Margin="0,0,3,0">
                     <TextBlock Text="Milestone" FontSize="11" Foreground="#666"/>
-                    <ComboBox SelectedItem="{Binding SelectedMilestone}" ItemsSource="{Binding AvailableMilestones}" SelectedIndex="0"/>
+                    <ComboBox SelectedItem="{Binding SelectedMilestone}" 
+                             ItemsSource="{Binding AvailableMilestones}" SelectedIndex="0"/>
                 </StackPanel>
 
                 <!-- Type Filter -->
                 <StackPanel Grid.Column="13" Spacing="4" Margin="0,0,3,0">
                     <TextBlock Text="Type" FontSize="11" Foreground="#666"/>
-                    <ComboBox SelectedItem="{Binding SelectedType}" ItemsSource="{Binding AvailableTypes}" SelectedIndex="0"/>
+                    <ComboBox SelectedItem="{Binding SelectedType}" 
+                             ItemsSource="{Binding AvailableTypes}" SelectedIndex="0"/>
                 </StackPanel>
             </Grid>
         </Border>

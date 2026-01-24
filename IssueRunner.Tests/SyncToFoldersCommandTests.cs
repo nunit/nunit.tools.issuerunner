@@ -65,7 +65,7 @@ public class SyncToFoldersCommandTests
         
         var metadata = new List<IssueMetadata>
         {
-            new IssueMetadata { Number = 1, State = "open", Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
+            new IssueMetadata { Number = 1, State = GithubIssueState.Open, Title = "Test Issue", Labels = new List<string>(), Url = "https://github.com/test/test/issues/1" }
         };
         
         var metadataPath = Path.Combine(_dataDir, "issues_metadata.json");

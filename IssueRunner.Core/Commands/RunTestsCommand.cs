@@ -1,6 +1,7 @@
 using IssueRunner.Models;
 using IssueRunner.Services;
 using Microsoft.Extensions.Logging;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 
@@ -290,9 +291,9 @@ public sealed class RunTestsCommand
                 return new();
             }
 
-            // Filter to only failed tests (TestResult != "success")
+            // Filter to only failed tests (TestResult != Success)
             var failedResults = allResults
-                .Where(r => r.TestResult != null && r.TestResult != "success")
+                .Where(r => r.TestResult != null && r.TestResult != StepResultStatus.Success)
                 .ToList();
 
             if (failedResults.Count == 0)
@@ -324,11 +325,11 @@ public sealed class RunTestsCommand
         filtered = options.Scope switch
         {
             TestScope.Regression => filtered
-                .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == "closed")
+                .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Closed)
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
             
             TestScope.Open => filtered
-                .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == "open")
+                .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Open)
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
             
             _ => filtered
@@ -615,23 +616,24 @@ public sealed class RunTestsCommand
             ProjectStyle = _projectAnalyzer.GetProjectStyle(projectFile),
             TargetFrameworks = frameworks,
             Packages = packages.Select(p => $"{p.Name}={p.Version}").ToList(),
-            UpdateResult = updateSuccess ? "success" : "fail",
+            UpdateResult = updateSuccess ? StepResultStatus.Success : StepResultStatus.Failed,
             UpdateOutput = updateOutput,
             UpdateError = updateError,
-            RestoreResult = restoreResult == StepStatus.NotRun ? "not run" : (restoreResult == StepStatus.Success ? "success" : "fail"),
+            RestoreResult = restoreResult == StepStatus.NotRun ? StepResultStatus.NotRun : (restoreResult == StepStatus.Success ? StepResultStatus.Success : StepResultStatus.Failed),
             RestoreOutput = restoreOutput,
             RestoreError = restoreError,
-            BuildResult = buildResult == StepStatus.NotRun ? "not run" : (buildResult == StepStatus.Success ? "success" : "fail"),
+            BuildResult = buildResult == StepStatus.NotRun ? StepResultStatus.NotRun : (buildResult == StepStatus.Success ? StepResultStatus.Success : StepResultStatus.Failed),
             BuildOutput = buildOutput,
             BuildError = buildError,
-            TestResult = testResultStatus == StepStatus.NotRun ? "not run" : (testResultStatus == StepStatus.Success ? "success" : "fail"),
+            TestResult = testResultStatus == StepStatus.NotRun ? StepResultStatus.NotRun : (testResultStatus == StepStatus.Success ? StepResultStatus.Success : StepResultStatus.Failed),
             TestOutput = testOutput,
             TestError = testError,
             TestConclusion = conclusion,
             RunSettings = runSettings,
             RunnerScripts = scripts,
             Feed = options.Feed.ToString(),
-            LastRun = now
+            LastRun = now,
+            RunResult = RunResult.Run
         };
 
         return result;
@@ -1009,7 +1011,8 @@ public sealed class RunTestsCommand
         
         var options = new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
         };
         
         var json = JsonSerializer.Serialize(mergedResults, options);
@@ -1034,7 +1037,11 @@ public sealed class RunTestsCommand
         try
         {
             var json = await File.ReadAllTextAsync(resultsPath, cancellationToken);
-            return JsonSerializer.Deserialize<List<IssueResult>>(json) ?? [];
+            var options = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            };
+            return JsonSerializer.Deserialize<List<IssueResult>>(json, options) ?? [];
         }
         catch
         {
@@ -1125,8 +1132,8 @@ public sealed class RunTestsCommand
             {
                 // Check if any result for this issue has build or restore failure
                 var hasBuildOrRestoreFailure = issueResults.Any(r => 
-                    (r.BuildResult != null && r.BuildResult == "fail") || 
-                    (r.RestoreResult != null && r.RestoreResult == "fail"));
+                    (r.BuildResult != null && r.BuildResult == StepResultStatus.Failed) || 
+                    (r.RestoreResult != null && r.RestoreResult == StepResultStatus.Failed));
                 
                 if (hasBuildOrRestoreFailure)
                 {
@@ -1197,12 +1204,13 @@ public sealed class RunTestsCommand
             ProjectStyle = _projectAnalyzer.GetProjectStyle(projectFile),
             TargetFrameworks = frameworks,
             Packages = new List<string>(), // No packages for skipped issues
-            UpdateResult = "not run",
-            RestoreResult = "not run",
-            BuildResult = "not run",
-            TestResult = "skipped",
+            UpdateResult = StepResultStatus.NotRun,
+            RestoreResult = StepResultStatus.NotRun,
+            BuildResult = StepResultStatus.NotRun,
+            TestResult = StepResultStatus.NotRun,
             Feed = options.Feed.ToString(),
-            LastRun = now
+            LastRun = now,
+            RunResult = RunResult.Skipped
         };
     }
 
@@ -1230,12 +1238,13 @@ public sealed class RunTestsCommand
             ProjectStyle = _projectAnalyzer.GetProjectStyle(projectFile),
             TargetFrameworks = frameworks,
             Packages = new List<string>(), // No packages for not synced issues
-            UpdateResult = "not run",
-            RestoreResult = "not run",
-            BuildResult = "not run",
-            TestResult = "not synced",
+            UpdateResult = StepResultStatus.NotRun,
+            RestoreResult = StepResultStatus.NotRun,
+            BuildResult = StepResultStatus.NotRun,
+            TestResult = StepResultStatus.NotRun,
             Feed = options.Feed.ToString(),
-            LastRun = now
+            LastRun = now,
+            RunResult = RunResult.NotSynced
         };
     }
     
@@ -1266,10 +1275,11 @@ public sealed class RunTestsCommand
             ProjectStyle = _projectAnalyzer.GetProjectStyle(projectFile),
             TargetFrameworks = frameworks,
             Packages = new List<string>(), // Packages may not be relevant for not-compiling issues
-            UpdateResult = "not run",
-            RestoreResult = "not run",
-            BuildResult = "not compile",
-            TestResult = "not compiling",
+            UpdateResult = StepResultStatus.NotRun,
+            RestoreResult = StepResultStatus.NotRun,
+            BuildResult = StepResultStatus.Failed,
+            TestResult = StepResultStatus.NotRun,
+            RunResult = RunResult.Run,
             Feed = options.Feed.ToString(),
             LastRun = now
         };
@@ -1294,7 +1304,11 @@ public sealed class RunTestsCommand
         try
         {
             var json = await File.ReadAllTextAsync(resultsPath, cancellationToken);
-            var allResults = JsonSerializer.Deserialize<List<IssueResult>>(json);
+            var options = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            };
+            var allResults = JsonSerializer.Deserialize<List<IssueResult>>(json, options);
             
             if (allResults == null)
             {
@@ -1314,8 +1328,8 @@ public sealed class RunTestsCommand
 
                 // Check if any result for this issue has build or restore failure
                 var hasBuildFailure = issueResults.Any(r => 
-                    (r.BuildResult != null && r.BuildResult == "fail") || 
-                    (r.RestoreResult != null && r.RestoreResult == "fail"));
+                    (r.BuildResult != null && r.BuildResult == StepResultStatus.Failed) || 
+                    (r.RestoreResult != null && r.RestoreResult == StepResultStatus.Failed));
                 
                 if (hasBuildFailure)
                 {
@@ -1402,10 +1416,10 @@ public sealed class RunTestsCommand
                 Issue = issueName,
                 Project = result.ProjectPath,
                 LastRun = now,
-                TestResult = result.TestResult ?? "unknown"
+                TestResult = result.TestResult?.ToString() ?? "unknown"
             };
 
-            if (result.TestResult == "success")
+            if (result.TestResult == StepResultStatus.Success)
             {
                 passesDict[key] = entry;
                 // Remove from fails if it was there
@@ -1434,7 +1448,8 @@ public sealed class RunTestsCommand
 
         var options = new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
         };
 
         var passesJson = JsonSerializer.Serialize(passesList, options);
@@ -1474,7 +1489,8 @@ public sealed class RunTestsCommand
 
         var options = new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
         };
 
         // Write issue_results.json for each issue that has results
@@ -1525,7 +1541,7 @@ public sealed class RunTestsCommand
             var matchingResult = results.FirstOrDefault(r => 
                 $"Issue{r.Number}" == failEntry.Issue && 
                 r.ProjectPath == failEntry.Project &&
-                r.TestResult == "success");
+                r.TestResult == StepResultStatus.Success);
 
             if (matchingResult != null)
             {
@@ -1549,7 +1565,11 @@ public sealed class RunTestsCommand
             var dataDir = _environmentService.GetDataDirectory(repositoryRoot);
             var updatedFails = new TestResultList { TestResults = remainingFails };
             var failsPath = Path.Combine(dataDir, "test-fails.json");
-            var options = new JsonSerializerOptions { WriteIndented = true };
+            var options = new JsonSerializerOptions 
+            { 
+                WriteIndented = true,
+                Converters = { new JsonStringEnumConverter() }
+            };
             var failsJson = JsonSerializer.Serialize(updatedFails, options);
             await File.WriteAllTextAsync(failsPath, failsJson, cancellationToken);
 
