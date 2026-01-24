@@ -8,7 +8,7 @@ namespace IssueRunner.Services
     {
         void AddRoot(string root);
         string Root { get; }
-        RepositoryConfig RepositoryConfig { get; set; }
+        RepositoryConfig? RepositoryConfig { get; set; }
         string ResolveRepositoryRoot(string? cwd = null);
         string GetDataDirectory(string repositoryRoot);
         void MigrateFilesToDataDirectory(string repositoryRoot);
@@ -24,7 +24,7 @@ namespace IssueRunner.Services
         }
 
         public string Root { get; private set; } = "";
-        public RepositoryConfig RepositoryConfig { get; set; }
+        public RepositoryConfig? RepositoryConfig { get; set; }
 
         public void AddRoot(string root)
         {

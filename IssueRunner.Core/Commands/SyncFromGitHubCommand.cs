@@ -60,7 +60,7 @@ public sealed class SyncFromGitHubCommand
         try
         {
             string repositoryRoot = _environmentService.Root;
-            var repositoryConfig = _environmentService.RepositoryConfig;
+            var repositoryConfig = _environmentService.RepositoryConfig ?? throw new InvalidOperationException("RepositoryConfig is not set. Call AddRoot first.");
             
             // Load existing metadata to check which issues already have metadata
             var dataDir = _environmentService.GetDataDirectory(repositoryRoot);

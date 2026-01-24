@@ -21,7 +21,7 @@ public sealed class ReportGeneratorService
     {
         _logger = logger;
         _environmentService = environmentService;
-        repositoryConfig = _environmentService.RepositoryConfig;
+        repositoryConfig = _environmentService.RepositoryConfig ?? throw new InvalidOperationException("RepositoryConfig is not set. Call AddRoot first.");
     }
 
     private string IssueLink(int number) => $"[#{number}](https://github.com/{repositoryConfig}/issues/{number})";

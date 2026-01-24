@@ -501,9 +501,10 @@ public class MainViewModel : ViewModelBase
             var issueListViewModel = _services.GetRequiredService<IssueListViewModel>();
             CurrentView = new IssueListView { DataContext = issueListViewModel };
             CurrentViewType = "IssueList";
-            // Capture RepositoryPath to avoid timing issues with async execution
+            // Capture RepositoryPath and folders to avoid timing issues with async execution
             var repoPath = RepositoryPath;
-            _ = Task.Run(async () => await LoadIssuesIntoViewAsync(issueListViewModel, status.Folders, repoPath));
+            var folders = status.Folders;
+            _ = Task.Run(async () => await LoadIssuesIntoViewAsync(issueListViewModel, folders, repoPath));
         }
         catch (Exception ex)
         {
@@ -522,7 +523,7 @@ public class MainViewModel : ViewModelBase
         try
         {
             var loader = _services.GetRequiredService<IIssueListLoader>();
-            var result = await loader.LoadIssuesAsync(repositoryPath, folders, AppendLog);
+            var result = await loader.LoadIssuesAsync(repositoryPath, folders, viewModel.ViewMode, AppendLog);
 
             await ExecuteOnUIThreadAsync(() =>
             {
@@ -532,6 +533,7 @@ public class MainViewModel : ViewModelBase
                 viewModel.SetShowOptionsCallback(async () => await ShowOptionsAsync());
                 viewModel.SetSyncFromGitHubCommand(SyncFromGitHubCommand);
                 viewModel.SetResetPackagesCallback(async (issueNumbers) => await ResetPackagesAsync(issueNumbers));
+                viewModel.SetReloadIssuesCallback(async () => await LoadIssuesIntoViewAsync(viewModel, folders, repositoryPath));
                 viewModel.SetRepositoryBaseUrl(result.RepositoryBaseUrl);
             });
         }

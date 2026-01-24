@@ -12,11 +12,13 @@ public interface IIssueListLoader
     /// </summary>
     /// <param name="repositoryRoot">Repository root path.</param>
     /// <param name="folders">Discovered issue folders (issue number -> folder path).</param>
+    /// <param name="viewMode">View mode (Current, Baseline, or Diff).</param>
     /// <param name="log">Optional logging callback.</param>
     /// <returns>Issue list load result.</returns>
     Task<IssueListLoadResult> LoadIssuesAsync(
         string repositoryRoot,
         Dictionary<int, string> folders,
+        IssueViewMode viewMode = IssueViewMode.Current,
         Action<string>? log = null);
 }
 

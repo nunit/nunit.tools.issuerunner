@@ -220,7 +220,7 @@ public class MarkerServiceTests
         var invalidPath = "C:\\Invalid<>Path|With?InvalidChars";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => _markerService!.ShouldSkipIssue(invalidPath));
+        Assert.Throws<IOException>(() => _markerService!.ShouldSkipIssue(invalidPath));
     }
 
     /// <summary>
@@ -324,7 +324,7 @@ public class MarkerServiceTests
         var invalidPath = "C:\\Invalid<>Path|";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => service.ShouldSkipIssue(invalidPath));
+        Assert.Throws<IOException>(() => service.ShouldSkipIssue(invalidPath));
     }
 
     /// <summary>

@@ -15,7 +15,7 @@ public sealed class GitHubApiService : IGitHubApiService
     private readonly HttpClient _httpClient;
     private readonly IEnvironmentService _environmentService;
     private readonly ILogger<GitHubApiService> _logger;
-    private RepositoryConfig RepositoryConfig { get; set; }
+    private RepositoryConfig? RepositoryConfig { get; set; }
     private string? _lastError;
 
     /// <summary>
@@ -38,6 +38,10 @@ public sealed class GitHubApiService : IGitHubApiService
         int issueNumber,
         CancellationToken cancellationToken = default)
     {
+        if (RepositoryConfig == null)
+        {
+            throw new InvalidOperationException("RepositoryConfig is not set. Call AddRoot first.");
+        }
         var url = $"{ApiBaseUrl}/repos/{RepositoryConfig.Owner}/{RepositoryConfig.Name}/issues/{issueNumber}";
         
         try

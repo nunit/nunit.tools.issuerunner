@@ -8,6 +8,16 @@ using System.Diagnostics;
 namespace IssueRunner.Gui.ViewModels;
 
 /// <summary>
+/// View mode for issue list display.
+/// </summary>
+public enum IssueViewMode
+{
+    Current,
+    Baseline,
+    Diff
+}
+
+/// <summary>
 /// View model for the issue list view.
 /// </summary>
 public class IssueListViewModel : ViewModelBase
@@ -17,6 +27,7 @@ public class IssueListViewModel : ViewModelBase
     private Func<List<int>, Task>? _runTestsCallback;
     private Func<Task>? _showOptionsCallback;
     private Func<List<int>, Task>? _resetPackagesCallback;
+    private Func<Task>? _reloadIssuesCallback;
     private string _repositoryBaseUrl = "";
     private Dictionary<string, ChangeType> _issueChanges = new();
 
@@ -36,13 +47,16 @@ public class IssueListViewModel : ViewModelBase
                 x => x.SelectedType)
             .Subscribe(_ => ApplyFilters());
         
-        this.WhenAnyValue(x => x.ShowDiffOnly)
-            .Subscribe(_ => ApplyFilters());
-        
-        ToggleDiffCommand = ReactiveCommand.Create(() =>
-        {
-            ShowDiffOnly = !ShowDiffOnly;
-        });
+        this.WhenAnyValue(x => x.ViewMode)
+            .Subscribe(async _ =>
+            {
+                ApplyFilters();
+                // Reload issues when switching to Baseline mode (needs different data source)
+                if (_reloadIssuesCallback != null && ViewMode == IssueViewMode.Baseline)
+                {
+                    await _reloadIssuesCallback();
+                }
+            });
         
         // RunTestsCommand can execute whenever there is at least one issue in the filtered list or issue numbers are specified.
         RunTestsCommand = ReactiveCommand.CreateFromTask(
@@ -74,7 +88,6 @@ public class IssueListViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> ShowOptionsCommand { get; }
     public ReactiveCommand<int, Unit> OpenIssueCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearIssueNumbersCommand { get; }
-    public ReactiveCommand<Unit, Unit> ToggleDiffCommand { get; }
     public ReactiveCommand<Unit, Unit> ResetPackagesCommand { get; }
 
     public ReactiveCommand<Unit, Unit>? SyncFromGitHubCommand
@@ -179,11 +192,11 @@ public class IssueListViewModel : ViewModelBase
         set => SetProperty(ref field, value);
     } = "";
 
-    public bool ShowDiffOnly
+    public IssueViewMode ViewMode
     {
         get;
         set => SetProperty(ref field, value);
-    } = false;
+    } = IssueViewMode.Current;
 
     public Dictionary<string, ChangeType> IssueChanges
     {
@@ -209,6 +222,11 @@ public class IssueListViewModel : ViewModelBase
     public void SetResetPackagesCallback(Func<List<int>, Task> callback)
     {
         _resetPackagesCallback = callback;
+    }
+
+    public void SetReloadIssuesCallback(Func<Task> callback)
+    {
+        _reloadIssuesCallback = callback;
     }
 
     public void SetRepositoryBaseUrl(string baseUrl)
@@ -447,22 +465,9 @@ public class IssueListViewModel : ViewModelBase
         }
         
         // Apply Diff filter (show only changed issues)
-        if (ShowDiffOnly && _issueChanges.Count > 0)
+        if (ViewMode == IssueViewMode.Diff)
         {
-            filtered = filtered.Where(i =>
-            {
-                // Check if this issue has a change (match by issue number)
-                // The key format is "Issue{Number}|{ProjectPath}"
-                return _issueChanges.Keys.Any(key =>
-                {
-                    var parts = key.Split('|');
-                    if (parts.Length >= 1 && int.TryParse(parts[0].Replace("Issue", "", StringComparison.OrdinalIgnoreCase), out var issueNum))
-                    {
-                        return issueNum == i.Number;
-                    }
-                    return false;
-                });
-            });
+            filtered = filtered.Where(i => i.ChangeType != ChangeType.None);
         }
         
         foreach (var item in filtered)

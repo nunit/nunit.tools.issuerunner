@@ -38,13 +38,14 @@ public sealed class IssueListLoader : IIssueListLoader
     public async Task<IssueListLoadResult> LoadIssuesAsync(
         string repositoryRoot,
         Dictionary<int, string> folders,
+        IssueViewMode viewMode = IssueViewMode.Current,
         Action<string>? log = null)
     {
         var issues = new List<IssueListItem>();
 
         // Get repository config for GitHub URL generation
         var repoConfig = _environmentService.RepositoryConfig;
-        var baseUrl = !string.IsNullOrEmpty(repoConfig.Owner) && !string.IsNullOrEmpty(repoConfig.Name)
+        var baseUrl = repoConfig != null && !string.IsNullOrEmpty(repoConfig.Owner) && !string.IsNullOrEmpty(repoConfig.Name)
             ? $"https://github.com/{repoConfig.Owner}/{repoConfig.Name}/issues/"
             : "";
 
@@ -94,12 +95,56 @@ public sealed class IssueListLoader : IIssueListLoader
             log?.Invoke($"Warning: Metadata file not found at {metadataPath}");
         }
 
-        // Load test results from results.json
-        var resultsPath = Path.Combine(dataDir, "results.json");
+        // Load test results - use baseline when viewMode is Baseline, otherwise use current
+        var resultsPath = viewMode == IssueViewMode.Baseline
+            ? Path.Combine(dataDir, "results-baseline.json")
+            : Path.Combine(dataDir, "results.json");
+        var baselineResultsPath = Path.Combine(dataDir, "results-baseline.json");
         var resultsByIssue = new Dictionary<int, (string Result, string LastRun)>();
+        var baselineResultsByIssue = new Dictionary<int, (string Result, string LastRun)>();
         var failedRestores = new HashSet<int>(); // Track issues with restore failures from results.json
         var failedBuilds = new HashSet<int>(); // Track issues with build failures from results.json
         var restoreErrors = new Dictionary<int, string>(); // Track restore error messages by issue number
+
+        // If Baseline view is selected but baseline file doesn't exist, show empty list
+        if (viewMode == IssueViewMode.Baseline && !File.Exists(resultsPath))
+        {
+            log?.Invoke("Baseline results file not found. Baseline view will be empty.");
+            return new IssueListLoadResult
+            {
+                Issues = new List<IssueListItem>(),
+                IssueChanges = new Dictionary<string, ChangeType>(),
+                RepositoryBaseUrl = baseUrl
+            };
+        }
+
+        // Always load baseline results when available for ChangeType calculation
+        if (File.Exists(baselineResultsPath) && viewMode != IssueViewMode.Baseline)
+        {
+            try
+            {
+                var baselineResultsJson = await File.ReadAllTextAsync(baselineResultsPath);
+                var allBaselineResults = JsonSerializer.Deserialize<List<IssueResult>>(baselineResultsJson);
+                if (allBaselineResults != null)
+                {
+                    var baselineResultsByIssueNumber = allBaselineResults
+                        .GroupBy(r => r.Number)
+                        .ToDictionary(g => g.Key, g => g.ToList());
+
+                    foreach (var kvp in baselineResultsByIssueNumber)
+                    {
+                        var issueNum = kvp.Key;
+                        var issueResults = kvp.Value;
+                        var (worstStatus, lastRun) = DetermineWorstResult(issueResults);
+                        baselineResultsByIssue[issueNum] = (worstStatus, lastRun);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log?.Invoke($"Warning: Could not load baseline results: {ex.Message}");
+            }
+        }
 
         if (File.Exists(resultsPath))
         {
@@ -140,47 +185,8 @@ public sealed class IssueListLoader : IIssueListLoader
                             failedBuilds.Add(issueNum);
                         }
 
-                        // Determine worst result and most recent timestamp
-                        IssueResult? worstResult = null;
-                        string? worstStatus = null;
-                        string? lastRun = null;
-
-                        foreach (var result in issueResults)
-                        {
-                            var status = result.TestResult ?? "not run";
-                            var resultLastRun = result.LastRun;
-
-                            // Determine priority: fail > not run > success
-                            var isWorse = false;
-                            if (worstStatus == null || (status == "fail" && worstStatus != "fail"))
-                            {
-                                isWorse = true;
-                            }
-                            else if (status == "not run" && worstStatus == "success")
-                            {
-                                isWorse = true;
-                            }
-                            // If same priority, use most recent
-                            else if (status == worstStatus &&
-                                     !string.IsNullOrEmpty(resultLastRun) &&
-                                     !string.IsNullOrEmpty(lastRun) &&
-                                     string.Compare(resultLastRun, lastRun, StringComparison.Ordinal) > 0)
-                            {
-                                isWorse = true;
-                            }
-
-                            if (isWorse)
-                            {
-                                worstResult = result;
-                                worstStatus = status;
-                                lastRun = resultLastRun;
-                            }
-                        }
-
-                        if (worstResult != null)
-                        {
-                            resultsByIssue[issueNum] = (worstStatus ?? "not run", lastRun ?? "");
-                        }
+                        var (worstStatus, lastRun) = DetermineWorstResult(issueResults);
+                        resultsByIssue[issueNum] = (worstStatus, lastRun);
                     }
                 }
             }
@@ -369,22 +375,35 @@ public sealed class IssueListLoader : IIssueListLoader
             // Check if this issue has a change
             var changeType = ChangeType.None;
             string? statusDisplay = null; // Null by default, will use TestResult via TargetNullValue, or set if there's a change
+            string? changeTooltip = null;
 
-            // Find matching diff entry (match by issue number)
-            // Note: We match by issue number only since we don't track project path in IssueListItem
-            var matchingDiff = diffs.FirstOrDefault(d => d.IssueNumber == issueNum);
-            if (matchingDiff != null)
+            // Calculate ChangeType when baseline exists (for coloring in Current view and filtering in Diff view)
+            var baselineExists = baselineResultsByIssue.TryGetValue(issueNum, out var baselineResult);
+            var currentExists = resultsByIssue.TryGetValue(issueNum, out var currentResultTuple);
+            
+            // Only set ChangeType if issue exists in BOTH baseline and current with different status
+            // New issues (only in current) or removed issues (only in baseline) should not show in Diff view
+            if (baselineExists && currentExists)
             {
-                changeType = matchingDiff.ChangeType;
-                statusDisplay = matchingDiff.ChangeType switch
+                // Both exist - compare them
+                var baselineStatus = NormalizeStatus(baselineResult.Result);
+                var currentStatus = NormalizeStatus(currentResultTuple.Result);
+                
+                if (baselineStatus != currentStatus)
                 {
-                    ChangeType.Regression => "=> fail",
-                    // For other changes, show the current status
-                    ChangeType.Fixed or ChangeType.CompileToFail or ChangeType.Other =>
-                        matchingDiff.CurrentStatus,
-                    _ => statusDisplay
-                };
+                    changeType = DetermineChangeType(baselineStatus, currentStatus);
+                    changeTooltip = FormatChangeTooltip(baselineStatus, currentStatus);
+                    
+                    statusDisplay = changeType switch
+                    {
+                        ChangeType.Regression => "=> fail",
+                        ChangeType.Fixed or ChangeType.CompileToFail or ChangeType.Other => currentStatus,
+                        _ => statusDisplay
+                    };
+                }
+                // If baselineStatus == currentStatus, changeType remains None (no change)
             }
+            // If issue only exists in one (new or removed), changeType remains None (don't show in Diff view)
 
             issues.Add(new IssueListItem
             {
@@ -402,7 +421,8 @@ public sealed class IssueListLoader : IIssueListLoader
                 GitHubUrl = !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}{issueNum}" : "",
                 Framework = framework,
                 ChangeType = changeType,
-                StatusDisplay = statusDisplay
+                StatusDisplay = statusDisplay,
+                ChangeTooltip = changeTooltip
             });
         }
 
@@ -411,6 +431,130 @@ public sealed class IssueListLoader : IIssueListLoader
             Issues = issues,
             IssueChanges = issueChanges,
             RepositoryBaseUrl = baseUrl
+        };
+    }
+
+    private static (string Result, string LastRun) DetermineWorstResult(List<IssueResult> issueResults)
+    {
+        IssueResult? worstResult = null;
+        string? worstStatus = null;
+        string? lastRun = null;
+
+        foreach (var result in issueResults)
+        {
+            var status = result.TestResult ?? "not run";
+            var resultLastRun = result.LastRun;
+
+            // Determine priority: fail > not run > success
+            var isWorse = false;
+            if (worstStatus == null || (status == "fail" && worstStatus != "fail"))
+            {
+                isWorse = true;
+            }
+            else if (status == "not run" && worstStatus == "success")
+            {
+                isWorse = true;
+            }
+            // If same priority, use most recent
+            else if (status == worstStatus &&
+                     !string.IsNullOrEmpty(resultLastRun) &&
+                     !string.IsNullOrEmpty(lastRun) &&
+                     string.Compare(resultLastRun, lastRun, StringComparison.Ordinal) > 0)
+            {
+                isWorse = true;
+            }
+
+            if (isWorse)
+            {
+                worstResult = result;
+                worstStatus = status;
+                lastRun = resultLastRun;
+            }
+        }
+
+        return (worstStatus ?? "not run", lastRun ?? "");
+    }
+
+    private static string NormalizeStatus(string status)
+    {
+        if (string.IsNullOrEmpty(status))
+        {
+            return "not run";
+        }
+
+        var normalized = status.ToLowerInvariant();
+        if (normalized == "success" || normalized == "pass")
+        {
+            return "success";
+        }
+        if (normalized == "fail" || normalized == "failed")
+        {
+            return "fail";
+        }
+        if (normalized == "not run" || normalized == "notrun" || normalized == "not tested")
+        {
+            return "not run";
+        }
+        if (normalized.Contains("not compiling") || normalized.Contains("compile") || normalized.Contains("not compiling"))
+        {
+            return "not compile";
+        }
+
+        return normalized;
+    }
+
+    private static ChangeType DetermineChangeType(string baselineStatus, string currentStatus)
+    {
+        // Fixed: Was non-success, now success (Green)
+        if (baselineStatus != "success" && currentStatus == "success")
+        {
+            return ChangeType.Fixed;
+        }
+
+        // Regression: Was success, now fail (Red)
+        if (baselineStatus == "success" && currentStatus == "fail")
+        {
+            return ChangeType.Regression;
+        }
+
+        // CompileToFail: Was not compile/restore fail, now test fail (Orange)
+        if ((baselineStatus == "not compile" || baselineStatus == "not run") && currentStatus == "fail")
+        {
+            return ChangeType.CompileToFail;
+        }
+
+        // Skipped: Was fail, now skipped
+        if (baselineStatus == "fail" && currentStatus == "skipped")
+        {
+            return ChangeType.Skipped;
+        }
+
+        // Other: Any other status change
+        if (baselineStatus != currentStatus)
+        {
+            return ChangeType.Other;
+        }
+
+        return ChangeType.None;
+    }
+
+    private static string FormatChangeTooltip(string baselineStatus, string currentStatus)
+    {
+        var baselineDisplay = FormatStatusForTooltip(baselineStatus);
+        var currentDisplay = FormatStatusForTooltip(currentStatus);
+        return $"{baselineDisplay} -> {currentDisplay}";
+    }
+
+    private static string FormatStatusForTooltip(string status)
+    {
+        return status switch
+        {
+            "success" => "Test Succeeds",
+            "fail" => "Test Fails",
+            "not run" => "Not Run",
+            "not compile" => "Not Compiling",
+            "skipped" => "Skipped",
+            _ => status
         };
     }
 }

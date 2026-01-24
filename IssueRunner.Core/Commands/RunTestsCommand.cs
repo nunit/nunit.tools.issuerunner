@@ -384,8 +384,6 @@ public sealed class RunTestsCommand
             return null;
         }
 
-        var relativeProjectPath = Path.GetRelativePath(Path.GetDirectoryName(folderPath)!, projectFile);
-        
         // Display target NUnit package versions once, before any package updates kick off
         if (isFirstIssue)
         {
@@ -516,31 +514,37 @@ public sealed class RunTestsCommand
                 : "dotnet test";
 
             Console.WriteLine($"[{issueNumber}] Running tests in {rel} ({executionMethod})");
-            
-            // Report step status with progress updates
-            if (testResult.RestoreResult.Status == StepStatus.Failed)
+
+            switch (testResult.RestoreResult.Status)
             {
-                Console.WriteLine($"[{issueNumber}] Restore failed");
-            }
-            else if (testResult.RestoreResult.Status == StepStatus.Success)
-            {
-                Console.WriteLine($"[{issueNumber}] Restore succeeded");
-                if (testResult.BuildResult.Status == StepStatus.Failed)
-                {
-                    Console.WriteLine($"[{issueNumber}] Build failed");
-                }
-                else if (testResult.BuildResult.Status == StepStatus.Success)
-                {
-                    Console.WriteLine($"[{issueNumber}] Build succeeded");
-                    if (testResult.TestResult.Status == StepStatus.Failed)
+                // Report step status with progress updates
+                case StepStatus.Failed:
+                    Console.WriteLine($"[{issueNumber}] Restore failed");
+                    break;
+                case StepStatus.Success:
+                    Console.WriteLine($"[{issueNumber}] Restore succeeded");
+                    switch (testResult.BuildResult.Status)
                     {
-                        Console.WriteLine($"[{issueNumber}] Test failed");
+                        case StepStatus.Failed:
+                            Console.WriteLine($"[{issueNumber}] Build failed");
+                            break;
+                        case StepStatus.Success:
+                        {
+                            Console.WriteLine($"[{issueNumber}] Build succeeded");
+                            if (testResult.TestResult.Status == StepStatus.Failed)
+                            {
+                                Console.WriteLine($"[{issueNumber}] Test failed");
+                            }
+                            else if (testResult.TestResult.Status == StepStatus.Success)
+                            {
+                                Console.WriteLine($"[{issueNumber}] All steps succeeded");
+                            }
+
+                            break;
+                        }
                     }
-                    else if (testResult.TestResult.Status == StepStatus.Success)
-                    {
-                        Console.WriteLine($"[{issueNumber}] All steps succeeded");
-                    }
-                }
+
+                    break;
             }
             
             if (options.Verbosity == LogVerbosity.Verbose)
