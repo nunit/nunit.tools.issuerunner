@@ -20,4 +20,6 @@ public class IssueListItem
     public string Framework { get; set; } = ""; // ".Net" or ".Net Framework"
     public ChangeType ChangeType { get; set; } = ChangeType.None; // Type of change from baseline
     public string? StatusDisplay { get; set; } = null; // Display text for status (e.g., "=> fail" for regressions). Null means use TestResult.
+    public string? Milestone { get; set; } // Milestone from metadata
+    public string? Type { get; set; } // Type extracted from labels starting with "is:"
 }

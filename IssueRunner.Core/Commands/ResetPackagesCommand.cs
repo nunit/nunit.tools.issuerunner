@@ -67,6 +67,14 @@ public sealed class ResetPackagesCommand(
                     continue;
                 }
 
+                // Check if issue has been synced (has initial state)
+                var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
+                if (!File.Exists(initialStatePath))
+                {
+                    Console.WriteLine($"[{issueNumber}] Not synced - skipping");
+                    continue;
+                }
+
                 var metadata = await LoadIssueMetadataAsync(folderPath, issueNumber, cancellationToken);
                 if (metadata == null)
                 {

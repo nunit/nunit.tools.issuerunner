@@ -45,6 +45,10 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
         var notRestoredCount = 0;
         var notCompilingCount = 0;
         var notTestedCount = 0;
+        var issuesNeedingSync = 0;
+        var lastSyncFromGitHub = "Never";
+        var lastTestRun = "Never";
+        var baselineCreated = "Never";
 
         try
         {
@@ -157,6 +161,38 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
             baselinePackages = LoadPackageVersions(Path.Combine(dataDir, "nunit-packages-baseline.json")) ?? "Not set";
             currentPackages = LoadPackageVersions(Path.Combine(dataDir, "nunit-packages-current.json")) ?? "Not set";
 
+            // Count issues needing sync (missing issue_initialstate.json)
+            issuesNeedingSync = folders.Count(folder =>
+            {
+                var initialStatePath = Path.Combine(folder.Value, "issue_initialstate.json");
+                return !File.Exists(initialStatePath);
+            });
+
+            // Determine timestamps
+            // dataDir, metadataPath, and resultsPath are already declared above
+            
+            // Last Sync from GitHub: issues_metadata.json LastWriteTime
+            if (File.Exists(metadataPath))
+            {
+                var metadataTime = File.GetLastWriteTime(metadataPath);
+                lastSyncFromGitHub = metadataTime.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+
+            // Last Test Run: results.json LastWriteTime
+            if (File.Exists(resultsPath))
+            {
+                var resultsTime = File.GetLastWriteTime(resultsPath);
+                lastTestRun = resultsTime.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+
+            // Baseline Created: results-baseline.json CreationTime
+            var baselinePath = Path.Combine(dataDir, "results-baseline.json");
+            if (File.Exists(baselinePath))
+            {
+                var baselineTime = File.GetCreationTime(baselinePath);
+                baselineCreated = baselineTime.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+
             // Build summary text
             var repoConfig = _environmentService.RepositoryConfig;
             var repoInfo = repoConfig != null ? $"{repoConfig.Owner}/{repoConfig.Name}" : "Unknown";
@@ -200,7 +236,11 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
             SkippedCount = skippedCount,
             NotRestoredCount = notRestoredCount,
             NotCompilingCount = notCompilingCount,
-            NotTestedCount = notTestedCount
+            NotTestedCount = notTestedCount,
+            IssuesNeedingSync = issuesNeedingSync,
+            LastSyncFromGitHub = lastSyncFromGitHub,
+            LastTestRun = lastTestRun,
+            BaselineCreated = baselineCreated
         };
     }
 

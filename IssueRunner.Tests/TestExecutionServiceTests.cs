@@ -50,9 +50,9 @@ public class TestExecutionServiceTests
     public async Task ExecuteTestsAsync_RunsRestoreBuildThenTest_InSequence()
     {
         // Arrange
-        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Restore output", ""));
-        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Build output", ""));
         _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("test")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Test output", ""));
@@ -67,9 +67,9 @@ public class TestExecutionServiceTests
         Assert.That(result.OverallSuccess, Is.True);
         
         // Verify restore was called first
-        await _processExecutor.Received(1).ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _processExecutor.Received(1).ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         // Verify build was called second
-        await _processExecutor.Received(1).ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _processExecutor.Received(1).ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         // Verify test was called third
         await _processExecutor.Received(1).ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("test")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
@@ -78,7 +78,7 @@ public class TestExecutionServiceTests
     public async Task ExecuteTestsAsync_ReturnsRestoreFailed_WhenRestoreFails()
     {
         // Arrange
-        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((1, "Restore output", "Restore error"));
 
         // Act
@@ -93,7 +93,7 @@ public class TestExecutionServiceTests
         Assert.That(result.OverallSuccess, Is.False);
         
         // Verify build and test were NOT called
-        await _processExecutor.DidNotReceive().ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _processExecutor.DidNotReceive().ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         await _processExecutor.DidNotReceive().ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("test")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
@@ -101,9 +101,9 @@ public class TestExecutionServiceTests
     public async Task ExecuteTestsAsync_ReturnsBuildFailed_WhenBuildFails()
     {
         // Arrange
-        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Restore output", ""));
-        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((1, "Build output", "Build error"));
 
         // Act
@@ -125,9 +125,9 @@ public class TestExecutionServiceTests
     public async Task ExecuteTestsAsync_ReturnsTestFailed_WhenTestFails()
     {
         // Arrange
-        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Restore output", ""));
-        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Build output", ""));
         _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("test")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((1, "Test output", "Test error"));
@@ -148,9 +148,9 @@ public class TestExecutionServiceTests
     public async Task ExecuteTestsAsync_ReturnsAllStepsSuccess_WhenAllStepsPass()
     {
         // Arrange
-        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor!.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("restore")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Restore output", ""));
-        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("build")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Build output", ""));
         _processExecutor.ExecuteAsync("dotnet", Arg.Is<string>(s => s.Contains("test")), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns((0, "Test output", ""));

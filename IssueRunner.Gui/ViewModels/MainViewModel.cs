@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using IssueRunner.Commands;
 using IssueRunner.Gui.Services;
+using IssueRunner.Gui.ViewModels;
 using IssueRunner.Gui.Views;
 using IssueRunner.Models;
 using IssueRunner.Services;
@@ -200,7 +201,7 @@ public class MainViewModel : ViewModelBase
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         RepositoryPath = savedPath;
-                        AppendLog($"Loaded saved repository: {savedPath}");
+                        // Repository will be loaded by the RepositoryPath setter, which calls LoadRepository()
                     });
                     return;
                 }
@@ -369,6 +370,30 @@ public class MainViewModel : ViewModelBase
         private set => SetProperty(ref field, value);
     }
 
+    public int IssuesNeedingSync
+    {
+        get;
+        private set => SetProperty(ref field, value);
+    }
+
+    public string LastSyncFromGitHub
+    {
+        get;
+        private set => SetProperty(ref field, value);
+    } = "Never";
+
+    public string LastTestRun
+    {
+        get;
+        private set => SetProperty(ref field, value);
+    } = "Never";
+
+    public string BaselineCreated
+    {
+        get;
+        private set => SetProperty(ref field, value);
+    } = "Never";
+
     private async Task BrowseRepositoryAsync()
     {
         var window = GetMainWindow();
@@ -460,6 +485,11 @@ public class MainViewModel : ViewModelBase
             NotRestoredCount = status.NotRestoredCount;
             NotCompilingCount = status.NotCompilingCount;
             NotTestedCount = status.NotTestedCount;
+
+            IssuesNeedingSync = status.IssuesNeedingSync;
+            LastSyncFromGitHub = status.LastSyncFromGitHub;
+            LastTestRun = status.LastTestRun;
+            BaselineCreated = status.BaselineCreated;
 
             _foldersWithoutMetadata.Clear();
             _foldersWithoutMetadata.AddRange(status.FoldersWithoutMetadata);
@@ -866,24 +896,159 @@ public class MainViewModel : ViewModelBase
                 return;
             }
 
-            AppendLog($"Resetting packages for {issueNumbers.Count} issue(s)...");
-
-            await ExecuteCommandWithConsoleCaptureAsync(async () =>
+            var mainWindow = GetMainWindow();
+            if (mainWindow == null)
             {
-                var cmd = _services.GetRequiredService<ResetPackagesCommand>();
-                return await cmd.ExecuteAsync(
-                    _environmentService.Root,
-                    issueNumbers,
-                    LogVerbosity.Normal,
-                    CancellationToken.None);
-            },
-            exitCode => AppendLog(exitCode == 0
-                ? "Packages reset successfully."
-                : $"Package reset completed with errors (exit code: {exitCode})."));
+                AppendLog("Error: Could not find main window");
+                return;
+            }
+
+            // Create and set up reset dialog
+            var resetViewModel = new ResetPackagesViewModel();
+            var cancellationSource = new CancellationTokenSource();
+            ResetPackagesDialog? resetDialog = null;
+
+            // Set up commands BEFORE creating dialog
+            resetViewModel.CancelCommand = ReactiveCommand.Create(() =>
+            {
+                cancellationSource.Cancel();
+                resetViewModel.StatusText = "Cancelling...";
+            });
+
+            // Create dialog after commands are set
+            resetDialog = new ResetPackagesDialog(resetViewModel)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            // Set total issues for progress
+            resetViewModel.TotalIssues = issueNumbers.Count;
+            resetViewModel.StatusText = $"Resetting packages for {issueNumbers.Count} issue(s)...";
+            resetViewModel.IsRunning = true;
+
+            // Show dialog (non-blocking)
+            resetDialog.Show(mainWindow);
+
+            // Run reset in background with real-time progress updates
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var originalOut = Console.Out;
+                    var realTimeWriter = new RealTimeLogWriter(
+                        line => AppendLog(line),
+                        line => ParseResetOutputLine(line, resetViewModel));
+
+                    Console.SetOut(realTimeWriter);
+
+                    try
+                    {
+                        var cmd = _services.GetRequiredService<ResetPackagesCommand>();
+                        var exitCode = await cmd.ExecuteAsync(
+                            _environmentService.Root,
+                            issueNumbers,
+                            LogVerbosity.Normal,
+                            cancellationSource.Token);
+
+                        // Ensure progress reaches 100% when complete
+                        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            // Make sure all issues are counted as processed
+                            if (resetViewModel.IssuesProcessed < resetViewModel.TotalIssues)
+                            {
+                                resetViewModel.IssuesProcessed = resetViewModel.TotalIssues;
+                            }
+                            resetViewModel.Progress = 100.0;
+                            resetViewModel.IsRunning = false;
+                            resetViewModel.StatusText = exitCode == 0
+                                ? "Packages reset successfully."
+                                : $"Package reset completed with errors (exit code: {exitCode}).";
+                            resetViewModel.CurrentIssue = "";
+                            
+                            AppendLog(exitCode == 0
+                                ? "Packages reset successfully."
+                                : $"Package reset completed with errors (exit code: {exitCode}).");
+                        });
+                    }
+                    finally
+                    {
+                        Console.SetOut(originalOut);
+                        realTimeWriter.Dispose();
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        resetViewModel.IsRunning = false;
+                        resetViewModel.StatusText = "Reset cancelled.";
+                        resetViewModel.CurrentIssue = "";
+                        AppendLog("Reset packages cancelled.");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        resetViewModel.IsRunning = false;
+                        resetViewModel.StatusText = $"Error: {ex.Message}";
+                        resetViewModel.CurrentIssue = "";
+                        LogDetailedException("ResetPackagesAsync", ex);
+                    });
+                }
+            });
         }
         catch (Exception ex)
         {
             LogDetailedException("ResetPackagesAsync", ex);
+        }
+    }
+
+    private void ParseResetOutputLine(string line, ResetPackagesViewModel viewModel)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return;
+        }
+
+        // Parse lines like "[123] Reset to metadata versions"
+        if (line.Contains("Reset to metadata versions"))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"\[(\d+)\]");
+            if (match.Success)
+            {
+                viewModel.IssuesProcessed++;
+                viewModel.CurrentIssue = $"Issue {match.Groups[1].Value}";
+            }
+        }
+        // Parse lines like "[123] Skipped due to marker file" or "[123] Skipped - no metadata found"
+        else if (line.Contains("Skipped"))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"\[(\d+)\]");
+            if (match.Success)
+            {
+                viewModel.IssuesProcessed++;
+                viewModel.CurrentIssue = $"Issue {match.Groups[1].Value} (skipped)";
+            }
+        }
+        // Parse lines like "[123] No project files found"
+        else if (line.Contains("No project files found"))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"\[(\d+)\]");
+            if (match.Success)
+            {
+                viewModel.IssuesProcessed++;
+                viewModel.CurrentIssue = $"Issue {match.Groups[1].Value} (no project files)";
+            }
+        }
+        // Parse initial message to get total count
+        else if (line.Contains("Resetting packages for") && line.Contains("issues"))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"(\d+)\s+issues");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var total))
+            {
+                // Total is already set, but this confirms it
+            }
         }
     }
 

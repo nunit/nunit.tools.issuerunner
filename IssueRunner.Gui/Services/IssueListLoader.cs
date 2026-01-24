@@ -350,6 +350,22 @@ public sealed class IssueListLoader : IIssueListLoader
             // Get title from metadata (metadata always has titles)
             var issueTitle = metadata?.Title ?? $"Issue {issueNum}";
 
+            // Extract Milestone from metadata
+            var milestone = metadata?.Milestone;
+
+            // Extract Type from labels that start with "is:"
+            string? type = null;
+            if (metadata?.Labels != null)
+            {
+                var typeLabel = metadata.Labels.FirstOrDefault(l => 
+                    l.StartsWith("is:", StringComparison.OrdinalIgnoreCase));
+                if (typeLabel != null)
+                {
+                    // Extract the part after "is:" (e.g., "is:bug" -> "bug")
+                    type = typeLabel.Substring(3).Trim();
+                }
+            }
+
             // Check if this issue has a change
             var changeType = ChangeType.None;
             string? statusDisplay = null; // Null by default, will use TestResult via TargetNullValue, or set if there's a change
@@ -377,6 +393,8 @@ public sealed class IssueListLoader : IIssueListLoader
                 State = metadata?.State ?? "Unknown",
                 StateValue = stateValue,
                 DetailedState = detailedState,
+                Milestone = milestone,
+                Type = type,
                 TestResult = result.Result,
                 LastRun = lastRunDate,
                 NotTestedReason = notTestedReason,

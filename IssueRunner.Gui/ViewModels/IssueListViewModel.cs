@@ -26,7 +26,17 @@ public class IssueListViewModel : ViewModelBase
         Issues = new ReadOnlyObservableCollection<IssueListItem>(_filteredIssues);
         
         // Update filtered list when filters change
-        this.WhenAnyValue(x => x.SelectedScope, x => x.SelectedState, x => x.SelectedTestResult, x => x.SelectedTestTypes, x => x.SelectedFramework, x => x.ShowDiffOnly)
+        this.WhenAnyValue(
+                x => x.SelectedScope,
+                x => x.SelectedState,
+                x => x.SelectedTestResult,
+                x => x.SelectedTestTypes,
+                x => x.SelectedFramework,
+                x => x.SelectedMilestone,
+                x => x.SelectedType)
+            .Subscribe(_ => ApplyFilters());
+        
+        this.WhenAnyValue(x => x.ShowDiffOnly)
             .Subscribe(_ => ApplyFilters());
         
         ToggleDiffCommand = ReactiveCommand.Create(() =>
@@ -106,18 +116,60 @@ public class IssueListViewModel : ViewModelBase
         set => SetProperty(ref field, value);
     } = "All";
 
+    public string SelectedMilestone
+    {
+        get;
+        set => SetProperty(ref field, value);
+    } = "All";
+
+    public string SelectedType
+    {
+        get;
+        set => SetProperty(ref field, value);
+    } = "All";
+
     public IEnumerable<TestScope> AvailableScopes => Enum.GetValues<TestScope>();
     public IEnumerable<string> AvailableStates => new[] { "All", "New", "Synced", "Failed restore", "Failed compile", "Runnable", "Skipped" };
     public IEnumerable<string> AvailableTestResults => new[] { "All", "Success", "Fail", "Not Tested" };
     public IEnumerable<string> AvailableTestTypes => new[] { "All", "Scripts only", "dotnet test only" };
     public IEnumerable<string> AvailableFrameworks => new[] { "All", ".Net", ".Net Framework" };
 
+    public IEnumerable<string> AvailableMilestones
+    {
+        get
+        {
+            var milestones = _allIssues
+                .Where(i => !string.IsNullOrWhiteSpace(i.Milestone))
+                .Select(i => i.Milestone!)
+                .Distinct()
+                .OrderBy(m => m)
+                .ToList();
+            return new[] { "All" }.Concat(milestones);
+        }
+    }
+
+    public IEnumerable<string> AvailableTypes
+    {
+        get
+        {
+            var types = _allIssues
+                .Where(i => !string.IsNullOrWhiteSpace(i.Type))
+                .Select(i => i.Type!)
+                .Distinct()
+                .OrderBy(t => t)
+                .ToList();
+            return new[] { "All" }.Concat(types);
+        }
+    }
+
     public bool HasActiveFilters 
         => SelectedScope != TestScope.All 
            || SelectedState != "All" 
            || SelectedTestResult != "All" 
            || SelectedTestTypes != "All" 
-           || SelectedFramework != "All";
+           || SelectedFramework != "All"
+           || SelectedMilestone != "All"
+           || SelectedType != "All";
 
     public int FilteredIssueCount => _filteredIssues.Count;
 
@@ -307,6 +359,8 @@ public class IssueListViewModel : ViewModelBase
         {
             _allIssues.Add(item);
         }
+        OnPropertyChanged(nameof(AvailableMilestones));
+        OnPropertyChanged(nameof(AvailableTypes));
         ApplyFilters();
     }
 
@@ -378,6 +432,18 @@ public class IssueListViewModel : ViewModelBase
                 ".Net Framework" => filtered.Where(i => i.Framework == ".Net Framework"),
                 _ => filtered
             };
+        }
+
+        // Apply Milestone filter
+        if (SelectedMilestone != "All")
+        {
+            filtered = filtered.Where(i => i.Milestone == SelectedMilestone);
+        }
+
+        // Apply Type filter
+        if (SelectedType != "All")
+        {
+            filtered = filtered.Where(i => i.Type == SelectedType);
         }
         
         // Apply Diff filter (show only changed issues)

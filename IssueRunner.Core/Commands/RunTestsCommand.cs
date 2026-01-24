@@ -236,6 +236,19 @@ public sealed class RunTestsCommand
                 continue;
             }
 
+            // Check if issue has been synced (has initial state)
+            var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
+            if (!File.Exists(initialStatePath))
+            {
+                Console.WriteLine($"[{issueNumber}] Not synced - skipping");
+                var notSyncedResult = CreateNotSyncedIssueResult(issueNumber, folderPath, metadataDict, options);
+                if (notSyncedResult != null)
+                {
+                    results.Add(notSyncedResult);
+                }
+                continue;
+            }
+
             // Upgrade frameworks before processing
             _frameworkUpgrade.UpgradeAllProjectFrameworks(folderPath, issueNumber);
 
@@ -305,23 +318,6 @@ public sealed class RunTestsCommand
             filtered = filtered
                 .Where(kvp => options.IssueNumbers.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-        }
-
-        // Exclude non-compiling issues (unless rerunning failed tests)
-        if (!options.RerunFailedTests)
-        {
-            var failedBuilds = await LoadFailedBuildsAsync(repositoryRoot, cancellationToken);
-            if (failedBuilds.Count > 0)
-            {
-                var excludedCount = filtered.Count(kvp => failedBuilds.Contains(kvp.Key));
-                if (excludedCount > 0)
-                {
-                    Console.WriteLine($"Excluding {excludedCount} non-compiling issue(s) from results.json");
-                    filtered = filtered
-                        .Where(kvp => !failedBuilds.Contains(kvp.Key))
-                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                }
-            }
         }
 
         // Apply scope filter
@@ -1201,6 +1197,39 @@ public sealed class RunTestsCommand
             RestoreResult = "not run",
             BuildResult = "not run",
             TestResult = "skipped",
+            Feed = options.Feed.ToString(),
+            LastRun = now
+        };
+    }
+
+    private IssueResult? CreateNotSyncedIssueResult(
+        int issueNumber,
+        string folderPath,
+        Dictionary<int, IssueMetadata> metadataDict,
+        RunOptions options)
+    {
+        // Get project files to determine project path
+        var projectFiles = GetProjectFilesForIssue(folderPath, issueNumber);
+        if (projectFiles.Count == 0)
+        {
+            return null;
+        }
+        
+        var projectFile = projectFiles[0]; // Use first project
+        var now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var (frameworks, _) = _projectAnalyzer.ParseProjectFile(projectFile);
+        
+        return new IssueResult
+        {
+            Number = issueNumber,
+            ProjectPath = Path.GetRelativePath(folderPath, projectFile),
+            ProjectStyle = _projectAnalyzer.GetProjectStyle(projectFile),
+            TargetFrameworks = frameworks,
+            Packages = new List<string>(), // No packages for not synced issues
+            UpdateResult = "not run",
+            RestoreResult = "not run",
+            BuildResult = "not run",
+            TestResult = "not synced",
             Feed = options.Feed.ToString(),
             LastRun = now
         };

@@ -2,11 +2,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="IssueRunner.Gui.Views.MainWindow"
         xmlns:vm="using:IssueRunner.Gui.ViewModels"
+        xmlns:converters="using:IssueRunner.Gui.Converters"
         x:DataType="vm:MainViewModel"
         Title="IssueRunner - NUnit Issue Test Automation"
         Width="1600" Height="900"
         MinWidth="1200" MinHeight="600"
         Icon="avares://IssueRunner.Gui/Assets/nunit.png">
+    
+    <Window.Resources>
+        <converters:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter"/>
+    </Window.Resources>
     
     <Window.Styles>
         <Style Selector="Button">
@@ -92,6 +97,20 @@
                                           Margin="0,0,0,8"/>
                                 <StackPanel Spacing="4" Margin="0,8,0,0">
                                     <Grid ColumnDefinitions="Auto,*">
+                                        <TextBlock Grid.Column="0" Text="Last Sync from GitHub:" Foreground="#666" FontSize="11" MinWidth="100"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding LastSyncFromGitHub}" Foreground="#666" FontSize="11"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <TextBlock Grid.Column="0" Text="Last Test Run:" Foreground="#666" FontSize="11" MinWidth="100"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding LastTestRun}" Foreground="#666" FontSize="11"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <TextBlock Grid.Column="0" Text="Baseline Created:" Foreground="#666" FontSize="11" MinWidth="100"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding BaselineCreated}" Foreground="#666" FontSize="11"/>
+                                    </Grid>
+                                </StackPanel>
+                                <StackPanel Spacing="4" Margin="0,8,0,0">
+                                    <Grid ColumnDefinitions="Auto,*">
                                         <TextBlock Grid.Column="0" Text="Passed:" Foreground="#666" FontSize="11" MinWidth="100"/>
                                         <TextBlock Grid.Column="1" Text="{Binding PassedCount, StringFormat='{}{0}'}" Foreground="#107C10" FontSize="11" FontWeight="SemiBold"/>
                                     </Grid>
@@ -135,6 +154,10 @@
                                         </Button.Styles>
                                     </Button>
                                     <TextBlock Text=" (click to list)" Foreground="#999" FontSize="10"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IssuesNeedingSync, Converter={StaticResource GreaterThanZeroConverter}}" Margin="0,8,0,0">
+                                    <TextBlock Text="Sync needed: " Foreground="#666" FontSize="11"/>
+                                    <TextBlock Text="{Binding IssuesNeedingSync, StringFormat='{}{0}'}" Foreground="#FF8C00" FontSize="11" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

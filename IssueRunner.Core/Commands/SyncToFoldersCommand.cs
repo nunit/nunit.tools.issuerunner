@@ -151,7 +151,134 @@ public sealed class SyncToFoldersCommand
             projectMetadataList,
             cancellationToken);
 
+        // Handle initial state creation and migration
+        await ProcessInitialStateAsync(
+            folderPath,
+            metadata.Number,
+            projectMetadataList,
+            cancellationToken);
+
         return projectMetadataList.Count;
+    }
+
+    private async Task ProcessInitialStateAsync(
+        string folderPath,
+        int issueNumber,
+        List<IssueProjectMetadata> projectMetadataList,
+        CancellationToken cancellationToken)
+    {
+        var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
+        var markdownPath = Path.Combine(folderPath, "readme.initialstate.md");
+
+        // Check if initial state already exists
+        if (File.Exists(initialStatePath))
+        {
+            return; // Already has initial state
+        }
+
+        // Try to migrate from readme.initialstate.md
+        if (File.Exists(markdownPath))
+        {
+            var migrated = await MigrateFromMarkdownAsync(
+                markdownPath,
+                initialStatePath,
+                issueNumber,
+                projectMetadataList,
+                cancellationToken);
+            
+            if (migrated)
+            {
+                // Delete markdown file after successful migration
+                try
+                {
+                    File.Delete(markdownPath);
+                    Console.WriteLine($"  Migrated readme.initialstate.md to issue_initialstate.json");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[{Issue}] Failed to delete readme.initialstate.md after migration", issueNumber);
+                }
+                return;
+            }
+        }
+
+        // Always create initial state when it doesn't exist (represents state when first synced)
+        await CreateInitialStateAsync(
+            initialStatePath,
+            issueNumber,
+            projectMetadataList,
+            cancellationToken);
+    }
+
+    private async Task<bool> MigrateFromMarkdownAsync(
+        string markdownPath,
+        string jsonPath,
+        int issueNumber,
+        List<IssueProjectMetadata> projectMetadataList,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var markdownContent = await File.ReadAllTextAsync(markdownPath, cancellationToken);
+            
+            // Try to parse markdown and extract frameworks/packages
+            // For now, fall back to creating from current project metadata if parsing fails
+            // This ensures we always have an initial state even if markdown format is unknown
+            var initialState = new IssueInitialState
+            {
+                Number = issueNumber,
+                CreatedAt = File.GetCreationTime(markdownPath).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                Projects = projectMetadataList.Select(p => new ProjectInitialState
+                {
+                    ProjectPath = p.ProjectPath,
+                    TargetFrameworks = p.TargetFrameworks,
+                    Packages = p.Packages
+                }).ToList()
+            };
+
+            await WriteInitialStateAsync(jsonPath, initialState, cancellationToken);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[{Issue}] Failed to migrate readme.initialstate.md, will create from current state", issueNumber);
+            return false;
+        }
+    }
+
+    private async Task CreateInitialStateAsync(
+        string jsonPath,
+        int issueNumber,
+        List<IssueProjectMetadata> projectMetadataList,
+        CancellationToken cancellationToken)
+    {
+        var initialState = new IssueInitialState
+        {
+            Number = issueNumber,
+            CreatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            Projects = projectMetadataList.Select(p => new ProjectInitialState
+            {
+                ProjectPath = p.ProjectPath,
+                TargetFrameworks = p.TargetFrameworks,
+                Packages = p.Packages
+            }).ToList()
+        };
+
+        await WriteInitialStateAsync(jsonPath, initialState, cancellationToken);
+    }
+
+    private static async Task WriteInitialStateAsync(
+        string outputPath,
+        IssueInitialState initialState,
+        CancellationToken cancellationToken)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+
+        var json = JsonSerializer.Serialize(initialState, options);
+        await File.WriteAllTextAsync(outputPath, json, cancellationToken);
     }
 
     private static async Task WriteIssueMetadataAsync(
