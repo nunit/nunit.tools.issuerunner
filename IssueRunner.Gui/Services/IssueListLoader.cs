@@ -13,27 +13,18 @@ namespace IssueRunner.Gui.Services;
 /// Default implementation of <see cref="IIssueListLoader"/> that builds issue list items
 /// from metadata, results, diffs, and marker files.
 /// </summary>
-public sealed class IssueListLoader : IIssueListLoader
+public sealed class IssueListLoader(
+    IEnvironmentService environmentService,
+    ITestExecutionService testExecutionService,
+    IProjectAnalyzerService projectAnalyzerService,
+    ITestResultDiffService diffService,
+    IMarkerService markerService)
+    : IIssueListLoader
 {
-    private readonly IEnvironmentService _environmentService;
-    private readonly ITestExecutionService _testExecutionService;
-    private readonly IProjectAnalyzerService _projectAnalyzerService;
-    private readonly ITestResultDiffService _diffService;
-    private readonly IMarkerService _markerService;
-
-    public IssueListLoader(
-        IEnvironmentService environmentService,
-        ITestExecutionService testExecutionService,
-        IProjectAnalyzerService projectAnalyzerService,
-        ITestResultDiffService diffService,
-        IMarkerService markerService)
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        _environmentService = environmentService;
-        _testExecutionService = testExecutionService;
-        _projectAnalyzerService = projectAnalyzerService;
-        _diffService = diffService;
-        _markerService = markerService;
-    }
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    };
 
     public async Task<IssueListLoadResult> LoadIssuesAsync(
         string repositoryRoot,
@@ -44,13 +35,13 @@ public sealed class IssueListLoader : IIssueListLoader
         var issues = new List<IssueListItem>();
 
         // Get repository config for GitHub URL generation
-        var repoConfig = _environmentService.RepositoryConfig;
+        var repoConfig = environmentService.RepositoryConfig;
         var baseUrl = repoConfig != null && !string.IsNullOrEmpty(repoConfig.Owner) && !string.IsNullOrEmpty(repoConfig.Name)
             ? $"https://github.com/{repoConfig.Owner}/{repoConfig.Name}/issues/"
             : "";
 
         // Load metadata
-        var dataDir = _environmentService.GetDataDirectory(repositoryRoot);
+        var dataDir = environmentService.GetDataDirectory(repositoryRoot);
         var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
         var metadataDict = new Dictionary<int, IssueMetadata>();
 
@@ -62,28 +53,10 @@ public sealed class IssueListLoader : IIssueListLoader
             try
             {
                 var metadataJson = await File.ReadAllTextAsync(metadataPath);
-                var metadata = JsonSerializer.Deserialize<List<IssueMetadata>>(metadataJson) ?? [];
+                var metadata = JsonSerializer.Deserialize<List<IssueMetadata>>(metadataJson, JsonOptions) ?? [];
 
-                // Handle duplicate issue numbers gracefully
-                var duplicates = metadata.GroupBy(m => m.Number).Where(g => g.Count() > 1).ToList();
-                if (duplicates.Any())
-                {
-                    foreach (var dup in duplicates)
-                    {
-                        log?.Invoke(
-                            $"Warning: Duplicate metadata entries found for issue {dup.Key}. Using the last occurrence.");
-                    }
-                }
+                metadataDict = metadata.ToDictionary(m => m.Number, m => m);
 
-                // Use GroupBy().ToDictionary() to take the last occurrence of each duplicate
-                metadataDict = metadata
-                    .GroupBy(m => m.Number)
-                    .ToDictionary(g => g.Key, g => g.Last());
-
-                // Count how many have titles
-                var titlesCount = metadataDict.Values.Count(m => !string.IsNullOrWhiteSpace(m.Title));
-                log?.Invoke(
-                    $"Loaded {metadataDict.Count} issue metadata entries from {metadataPath} ({titlesCount} with titles)");
             }
             catch (Exception ex)
             {
@@ -124,11 +97,7 @@ public sealed class IssueListLoader : IIssueListLoader
             try
             {
                 var baselineResultsJson = await File.ReadAllTextAsync(baselineResultsPath);
-                var options = new JsonSerializerOptions
-                {
-                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-                };
-                var allBaselineResults = JsonSerializer.Deserialize<List<IssueResult>>(baselineResultsJson, options);
+                var allBaselineResults = JsonSerializer.Deserialize<List<IssueResult>>(baselineResultsJson, JsonOptions);
                 if (allBaselineResults != null)
                 {
                     var baselineResultsByIssueNumber = allBaselineResults
@@ -155,11 +124,7 @@ public sealed class IssueListLoader : IIssueListLoader
             try
             {
                 var resultsJson = await File.ReadAllTextAsync(resultsPath);
-                var options = new JsonSerializerOptions
-                {
-                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-                };
-                var allResults = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson, options);
+                var allResults = JsonSerializer.Deserialize<List<IssueResult>>(resultsJson, JsonOptions);
                 if (allResults != null)
                 {
                     // Group results by issue number
@@ -205,7 +170,7 @@ public sealed class IssueListLoader : IIssueListLoader
         }
 
         // Load diff data
-        var diffs = await _diffService.CompareResultsAsync(repositoryRoot);
+        var diffs = await diffService.CompareResultsAsync(repositoryRoot);
         var issueChanges = new Dictionary<string, ChangeType>();
         var issueStatusDisplay = new Dictionary<int, string>();
 
@@ -247,7 +212,7 @@ public sealed class IssueListLoader : IIssueListLoader
             }
 
             // Determine TestTypes based on whether issue has custom scripts
-            var hasCustomScripts = _testExecutionService.HasCustomRunners(folderPath);
+            var hasCustomScripts = testExecutionService.HasCustomRunners(folderPath);
             // Column display values: "Scripts" or "DotNet test"
             var testTypes = hasCustomScripts ? "Scripts" : "DotNet test";
 
@@ -255,13 +220,13 @@ public sealed class IssueListLoader : IIssueListLoader
             var framework = "";
             try
             {
-                var projectFiles = _projectAnalyzerService.FindProjectFiles(folderPath);
+                var projectFiles = projectAnalyzerService.FindProjectFiles(folderPath);
                 var hasNetFx = false;
                 var hasNet = false;
 
                 foreach (var projectFile in projectFiles)
                 {
-                    var (targetFrameworks, _) = _projectAnalyzerService.ParseProjectFile(projectFile);
+                    var (targetFrameworks, _) = projectAnalyzerService.ParseProjectFile(projectFile);
                     foreach (var tfm in targetFrameworks)
                     {
                         // Check if it's .NET Framework (net35, net40, net45, net451, net452, net46, net461, net462, net47, net471, net472, net48, net481)
@@ -310,9 +275,9 @@ public sealed class IssueListLoader : IIssueListLoader
             var detailedState = metadata?.State.ToString() ?? "Unknown";
             string? notTestedReason = null;
 
-            if (_markerService.ShouldSkipIssue(folderPath))
+            if (markerService.ShouldSkipIssue(folderPath))
             {
-                var markerReason = _markerService.GetMarkerReason(folderPath);
+                var markerReason = markerService.GetMarkerReason(folderPath);
                 detailedState = "skipped";
                 stateValue = IssueState.Skipped;
                 // Always show marker reason for skipped issues, regardless of test result
@@ -324,14 +289,9 @@ public sealed class IssueListLoader : IIssueListLoader
                 stateValue = IssueState.FailedRestore;
                 detailedState = "not restored";
                 // Include restore error message if available
-                if (restoreErrors.TryGetValue(issueNum, out var restoreError))
-                {
-                    notTestedReason = $"Restore failed: {restoreError.Trim()}";
-                }
-                else
-                {
-                    notTestedReason = "Restore failed";
-                }
+                notTestedReason = restoreErrors.TryGetValue(issueNum, out var restoreError) 
+                    ? $"Restore failed: {restoreError.Trim()}" 
+                    : "Restore failed";
             }
             else if (failedBuilds.Contains(issueNum))
             {
