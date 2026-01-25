@@ -1,0 +1,25 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="../README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/">
+    <File Path="../.github/copilot-instructions.md" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/workflows/">
+    <File Path="../.github/workflows/open-issues-dotnet.yml" />
+    <File Path="../.github/workflows/open-issues-netfx.yml" />
+    <File Path="../.github/workflows/regression-tests-dotnet.yml" />
+    <File Path="../.github/workflows/regression-tests-netfx.yml" />
+  </Folder>
+  <Project Path="IssueRunner.Cli/IssueRunner.Cli.csproj" />
+  <Project Path="IssueRunner.ComponentTests/IssueRunner.ComponentTests.csproj" />
+  <Project Path="IssueRunner.Core/IssueRunner.Core.csproj" />
+  <Project Path="IssueRunner.Gui.Tests/IssueRunner.Gui.Tests.csproj" />
+  <Project Path="IssueRunner.Gui/IssueRunner.Gui.csproj" />
+  <Project Path="IssueRunner.Tests/IssueRunner.Tests.csproj" />
+</Solution>

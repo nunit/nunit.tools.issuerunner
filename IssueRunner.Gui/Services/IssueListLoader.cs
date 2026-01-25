@@ -73,7 +73,8 @@ public sealed class IssueListLoader(
             ? Path.Combine(dataDir, "results-baseline.json")
             : Path.Combine(dataDir, "results.json");
         var baselineResultsPath = Path.Combine(dataDir, "results-baseline.json");
-        var resultsByIssue = new Dictionary<int, (string Result, string LastRun)>();
+        var resultsByIssue = new Dictionary<int, List<IssueResult>>(); // Store full result lists
+        var resultsByIssueForComparison = new Dictionary<int, (string Result, string LastRun)>(); // For baseline comparison
         var baselineResultsByIssue = new Dictionary<int, (string Result, string LastRun)>();
         var failedRestores = new HashSet<int>(); // Track issues with restore failures from results.json
         var failedBuilds = new HashSet<int>(); // Track issues with build failures from results.json
@@ -108,7 +109,7 @@ public sealed class IssueListLoader(
                     {
                         var issueNum = kvp.Key;
                         var issueResults = kvp.Value;
-                        var (worstStatus, lastRun) = DetermineWorstResult(issueResults);
+                        var (worstStatus, lastRun) = IssueListItem.DetermineWorstResult(issueResults);
                         baselineResultsByIssue[issueNum] = (worstStatus, lastRun);
                     }
                 }
@@ -132,11 +133,14 @@ public sealed class IssueListLoader(
                         .GroupBy(r => r.Number)
                         .ToDictionary(g => g.Key, g => g.ToList());
 
-                    // For each issue, determine the worst result (fail > not run > success)
+                    // For each issue, store the full result list and determine the worst result for comparison
                     foreach (var kvp in resultsByIssueNumber)
                     {
                         var issueNum = kvp.Key;
                         var issueResults = kvp.Value;
+
+                        // Store the full result list
+                        resultsByIssue[issueNum] = issueResults;
 
                         // Check if this issue has any restore failures
                         // A restore failure is indicated by RestoreResult == Failed OR RestoreError having content
@@ -158,8 +162,8 @@ public sealed class IssueListLoader(
                             failedBuilds.Add(issueNum);
                         }
 
-                        var (worstStatus, lastRun) = DetermineWorstResult(issueResults);
-                        resultsByIssue[issueNum] = (worstStatus, lastRun);
+                        var (worstStatus, lastRun) = IssueListItem.DetermineWorstResult(issueResults);
+                        resultsByIssueForComparison[issueNum] = (worstStatus, lastRun);
                     }
                 }
             }
@@ -173,6 +177,11 @@ public sealed class IssueListLoader(
         var diffs = await diffService.CompareResultsAsync(repositoryRoot);
         var issueChanges = new Dictionary<string, ChangeType>();
         var issueStatusDisplay = new Dictionary<int, string>();
+        
+        // Group diffs by issue number
+        var diffsByIssue = diffs
+            .GroupBy(d => d.IssueNumber)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         foreach (var diff in diffs)
         {
@@ -201,15 +210,15 @@ public sealed class IssueListLoader(
             var issueNum = kvp.Key;
             var folderPath = kvp.Value;
             var metadata = metadataDict.GetValueOrDefault(issueNum);
-
-            var result = resultsByIssue.TryGetValue(issueNum, out var r) ? r : (Result: "Not tested", LastRun: "");
-
-            var lastRunDate = "";
-            if (!string.IsNullOrEmpty(result.LastRun) &&
-                DateTime.TryParse(result.LastRun, out var dt))
-            {
-                lastRunDate = dt.ToString("yyyy-MM-dd HH:mm");
-            }
+            
+            // Get results list for this issue
+            var issueResults = resultsByIssue.TryGetValue(issueNum, out var results) ? results : null;
+            
+            // Get diffs list for this issue
+            var issueDiffs = diffsByIssue.TryGetValue(issueNum, out var issueDiffsList) ? issueDiffsList : null;
+            
+            // Get worst result for comparison with baseline
+            var result = resultsByIssueForComparison.TryGetValue(issueNum, out var r) ? r : (Result: "Not tested", LastRun: "");
 
             // Determine TestTypes based on whether issue has custom scripts
             var hasCustomScripts = testExecutionService.HasCustomRunners(folderPath);
@@ -298,7 +307,7 @@ public sealed class IssueListLoader(
                 // failedBuilds is populated from results.json (checks build_result == "fail")
                 stateValue = IssueState.FailedCompile;
                 detailedState = "not compiling";
-                if (result.Result == "Not tested" || string.IsNullOrEmpty(result.Result))
+                if (result.Result == "Not tested" || result.Result == "NotRun" || string.IsNullOrEmpty(result.Result))
                 {
                     notTestedReason = "Not compiling";
                 }
@@ -311,7 +320,7 @@ public sealed class IssueListLoader(
                 // New: just synced from GitHub, no test results yet
                 // Synced: has metadata and folder, ready to process
                 // Runnable: has been tested (has test result)
-                stateValue = string.IsNullOrEmpty(result.Result) || result.Result == "Not tested"
+                stateValue = string.IsNullOrEmpty(result.Result) || result.Result == "Not tested" || result.Result == "NotRun"
                     ? IssueState.Synced
                     : IssueState.Runnable;
             }
@@ -321,25 +330,6 @@ public sealed class IssueListLoader(
                 stateValue = IssueState.Synced;
             }
 
-            // Get title from metadata (metadata always has titles)
-            var issueTitle = metadata?.Title ?? $"Issue {issueNum}";
-
-            // Extract Milestone from metadata
-            var milestone = metadata?.Milestone;
-
-            // Extract Type from labels that start with "is:"
-            string? type = null;
-            if (metadata?.Labels != null)
-            {
-                var typeLabel = metadata.Labels.FirstOrDefault(l => 
-                    l.StartsWith("is:", StringComparison.OrdinalIgnoreCase));
-                if (typeLabel != null)
-                {
-                    // Extract the part after "is:" (e.g., "is:bug" -> "bug")
-                    type = typeLabel.Substring(3).Trim();
-                }
-            }
-
             // Check if this issue has a change
             var changeType = ChangeType.None;
             string? statusDisplay = null; // Null by default, will use TestResult via TargetNullValue, or set if there's a change
@@ -347,7 +337,7 @@ public sealed class IssueListLoader(
 
             // Calculate ChangeType when baseline exists (for coloring in Current view and filtering in Diff view)
             var baselineExists = baselineResultsByIssue.TryGetValue(issueNum, out var baselineResult);
-            var currentExists = resultsByIssue.TryGetValue(issueNum, out var currentResultTuple);
+            var currentExists = resultsByIssueForComparison.TryGetValue(issueNum, out var currentResultTuple);
             
             // Only set ChangeType if issue exists in BOTH baseline and current with different status
             // New issues (only in current) or removed issues (only in baseline) should not show in Diff view
@@ -376,15 +366,11 @@ public sealed class IssueListLoader(
 
             issues.Add(new IssueListItem
             {
-                Number = issueNum,
-                Title = issueTitle,
-                State = metadata?.State ?? GithubIssueState.Open,
+                Metadata = metadata,
+                Results = issueResults,
+                Diffs = issueDiffs,
                 StateValue = stateValue,
                 DetailedState = detailedState,
-                Milestone = milestone,
-                Type = type,
-                TestResult = result.Result,
-                LastRun = lastRunDate,
                 NotTestedReason = notTestedReason,
                 TestTypes = testTypes,
                 GitHubUrl = !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}{issueNum}" : "",
@@ -401,75 +387,6 @@ public sealed class IssueListLoader(
             IssueChanges = issueChanges,
             RepositoryBaseUrl = baseUrl
         };
-    }
-
-    private static (string Result, string LastRun) DetermineWorstResult(List<IssueResult> issueResults)
-    {
-        IssueResult? worstResult = null;
-        StepResultStatus? worstStatus = null;
-        string? lastRun = null;
-
-        foreach (var result in issueResults)
-        {
-            var status = result.TestResult ?? StepResultStatus.NotRun;
-            var resultLastRun = result.LastRun;
-
-            // Determine priority: Failed > NotRun > Success
-            var isWorse = false;
-            if (worstStatus == null || (status == StepResultStatus.Failed && worstStatus != StepResultStatus.Failed))
-            {
-                isWorse = true;
-            }
-            else if (status == StepResultStatus.NotRun && worstStatus == StepResultStatus.Success)
-            {
-                isWorse = true;
-            }
-            // If same priority, use most recent
-            else if (status == worstStatus &&
-                     !string.IsNullOrEmpty(resultLastRun) &&
-                     !string.IsNullOrEmpty(lastRun) &&
-                     string.Compare(resultLastRun, lastRun, StringComparison.Ordinal) > 0)
-            {
-                isWorse = true;
-            }
-
-            if (isWorse)
-            {
-                worstResult = result;
-                worstStatus = status;
-                lastRun = resultLastRun;
-            }
-        }
-
-        return (worstStatus?.ToString() ?? "NotRun", lastRun ?? "");
-    }
-
-    private static string NormalizeStatus(string status)
-    {
-        if (string.IsNullOrEmpty(status))
-        {
-            return "not run";
-        }
-
-        var normalized = status.ToLowerInvariant();
-        if (normalized == "success" || normalized == "pass")
-        {
-            return "success";
-        }
-        if (normalized == "fail" || normalized == "failed")
-        {
-            return "fail";
-        }
-        if (normalized == "not run" || normalized == "notrun" || normalized == "not tested")
-        {
-            return "not run";
-        }
-        if (normalized.Contains("not compiling") || normalized.Contains("compile") || normalized.Contains("not compiling"))
-        {
-            return "not compile";
-        }
-
-        return normalized;
     }
 
     private static ChangeType DetermineChangeType(StepResultStatus baselineStatus, StepResultStatus currentStatus)
