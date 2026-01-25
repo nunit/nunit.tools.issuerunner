@@ -7,6 +7,60 @@ namespace IssueRunner.Gui.Tests;
 [TestFixture]
 public class IssueListViewModelTests
 {
+    // Helper method to create IssueListItem with proper Metadata and Results
+    private static IssueListItem CreateIssueListItem(
+        int number,
+        string? title = null,
+        GithubIssueState? state = null,
+        string? testResult = null,
+        IssueState? stateValue = null,
+        string? testTypes = null,
+        string? framework = null,
+        string? milestone = null,
+        string? type = null)
+    {
+        var metadata = new IssueMetadata
+        {
+            Number = number,
+            Title = title ?? $"Issue {number}",
+            State = state ?? GithubIssueState.Open,
+            Milestone = milestone,
+            Labels = type != null ? [$"is:{type}"] : [],
+            Url = $"https://github.com/test/repo/issues/{number}"
+        };
+
+        List<IssueResult>? results = null;
+        if (testResult != null)
+        {
+            var status = testResult.ToLowerInvariant() switch
+            {
+                "success" => StepResultStatus.Success,
+                "fail" or "failed" => StepResultStatus.Failed,
+                _ => StepResultStatus.NotRun
+            };
+            results = new List<IssueResult>
+            {
+                new IssueResult
+                {
+                    Number = number,
+                    ProjectPath = "test.csproj",
+                    TargetFrameworks = [],
+                    Packages = [],
+                    TestResult = status,
+                    LastRun = DateTime.UtcNow.ToString("O")
+                }
+            };
+        }
+
+        return new IssueListItem
+        {
+            Metadata = metadata,
+            Results = results,
+            StateValue = stateValue ?? IssueState.Synced,
+            TestTypes = testTypes ?? "",
+            Framework = framework ?? ""
+        };
+    }
     [Test]
     public void ApplyFilters_FiltersIssuesBySelectedTestTypes_WhenTestTypesIsScriptsOnly()
     {
@@ -14,9 +68,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, TestTypes = "Scripts" },
-            new IssueListItem { Number = 2, TestTypes = "DotNet test" },
-            new IssueListItem { Number = 3, TestTypes = "Scripts" }
+            CreateIssueListItem(1, testTypes: "Scripts"),
+            CreateIssueListItem(2, testTypes: "DotNet test"),
+            CreateIssueListItem(3, testTypes: "Scripts")
         };
         viewModel.LoadIssues(issues);
         
@@ -36,9 +90,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, TestTypes = "Scripts" },
-            new IssueListItem { Number = 2, TestTypes = "DotNet test" },
-            new IssueListItem { Number = 3, TestTypes = "DotNet test" }
+            CreateIssueListItem(1, testTypes: "Scripts"),
+            CreateIssueListItem(2, testTypes: "DotNet test"),
+            CreateIssueListItem(3, testTypes: "DotNet test")
         };
         viewModel.LoadIssues(issues);
         
@@ -58,9 +112,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, TestTypes = "Scripts" },
-            new IssueListItem { Number = 2, TestTypes = "DotNet test" },
-            new IssueListItem { Number = 3, TestTypes = "Scripts" }
+            CreateIssueListItem(1, testTypes: "Scripts"),
+            CreateIssueListItem(2, testTypes: "DotNet test"),
+            CreateIssueListItem(3, testTypes: "Scripts")
         };
         viewModel.LoadIssues(issues);
         viewModel.SelectedTestTypes = "Scripts only"; // First filter to Scripts only
@@ -76,12 +130,7 @@ public class IssueListViewModelTests
     public void TestTypes_PropertyIsPopulatedCorrectly_ForIssueWithCustomScripts()
     {
         // Arrange
-        var issue = new IssueListItem
-        {
-            Number = 1,
-            Title = "Test Issue",
-            TestTypes = "Scripts"
-        };
+        var issue = CreateIssueListItem(1, "Test Issue", testTypes: "Scripts");
         
         // Assert
         Assert.That(issue.TestTypes, Is.EqualTo("Scripts"));
@@ -91,12 +140,7 @@ public class IssueListViewModelTests
     public void TestTypes_PropertyIsPopulatedCorrectly_ForIssueWithoutCustomScripts()
     {
         // Arrange
-        var issue = new IssueListItem
-        {
-            Number = 1,
-            Title = "Test Issue",
-            TestTypes = "DotNet test"
-        };
+        var issue = CreateIssueListItem(1, "Test Issue", testTypes: "DotNet test");
         
         // Assert
         Assert.That(issue.TestTypes, Is.EqualTo("DotNet test"));
@@ -136,9 +180,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, State = GithubIssueState.Closed },
-            new IssueListItem { Number = 2, State = GithubIssueState.Open },
-            new IssueListItem { Number = 3, State = GithubIssueState.Closed }
+            CreateIssueListItem(1, state: GithubIssueState.Closed),
+            CreateIssueListItem(2, state: GithubIssueState.Open),
+            CreateIssueListItem(3, state: GithubIssueState.Closed)
         };
         viewModel.LoadIssues(issues);
         
@@ -158,9 +202,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, State = GithubIssueState.Closed },
-            new IssueListItem { Number = 2, State = GithubIssueState.Open },
-            new IssueListItem { Number = 3, State = GithubIssueState.Open }
+            CreateIssueListItem(1, state: GithubIssueState.Closed),
+            CreateIssueListItem(2, state: GithubIssueState.Open),
+            CreateIssueListItem(3, state: GithubIssueState.Open)
         };
         viewModel.LoadIssues(issues);
         
@@ -180,9 +224,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, State = GithubIssueState.Closed },
-            new IssueListItem { Number = 2, State = GithubIssueState.Open },
-            new IssueListItem { Number = 3, State = GithubIssueState.Closed }
+            CreateIssueListItem(1, state: GithubIssueState.Closed),
+            CreateIssueListItem(2, state: GithubIssueState.Open),
+            CreateIssueListItem(3, state: GithubIssueState.Closed)
         };
         viewModel.LoadIssues(issues);
         viewModel.SelectedScope = TestScope.Regression; // First filter to Regression
@@ -201,9 +245,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, StateValue = IssueState.New },
-            new IssueListItem { Number = 2, StateValue = IssueState.Synced },
-            new IssueListItem { Number = 3, StateValue = IssueState.New }
+            CreateIssueListItem(1, stateValue: IssueState.New),
+            CreateIssueListItem(2, stateValue: IssueState.Synced),
+            CreateIssueListItem(3, stateValue: IssueState.New)
         };
         viewModel.LoadIssues(issues);
         
@@ -223,9 +267,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, StateValue = IssueState.Skipped },
-            new IssueListItem { Number = 2, StateValue = IssueState.Runnable },
-            new IssueListItem { Number = 3, StateValue = IssueState.Skipped }
+            CreateIssueListItem(1, stateValue: IssueState.Skipped),
+            CreateIssueListItem(2, stateValue: IssueState.Runnable),
+            CreateIssueListItem(3, stateValue: IssueState.Skipped)
         };
         viewModel.LoadIssues(issues);
         
@@ -245,9 +289,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, StateValue = IssueState.FailedCompile },
-            new IssueListItem { Number = 2, StateValue = IssueState.Runnable },
-            new IssueListItem { Number = 3, StateValue = IssueState.FailedCompile }
+            CreateIssueListItem(1, stateValue: IssueState.FailedCompile),
+            CreateIssueListItem(2, stateValue: IssueState.Runnable),
+            CreateIssueListItem(3, stateValue: IssueState.FailedCompile)
         };
         viewModel.LoadIssues(issues);
         
@@ -267,9 +311,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, StateValue = IssueState.New },
-            new IssueListItem { Number = 2, StateValue = IssueState.Synced },
-            new IssueListItem { Number = 3, StateValue = IssueState.Runnable }
+            CreateIssueListItem(1, stateValue: IssueState.New),
+            CreateIssueListItem(2, stateValue: IssueState.Synced),
+            CreateIssueListItem(3, stateValue: IssueState.Runnable)
         };
         viewModel.LoadIssues(issues);
         viewModel.SelectedState = "New"; // First filter to New
@@ -288,8 +332,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var initialIssues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Old Title 1" },
-            new IssueListItem { Number = 2, Title = "Old Title 2" }
+            CreateIssueListItem(1, "Old Title 1"),
+            CreateIssueListItem(2, "Old Title 2")
         };
         viewModel.LoadIssues(initialIssues);
         Assert.That(viewModel.AllIssues.Count, Is.EqualTo(2));
@@ -297,7 +341,7 @@ public class IssueListViewModelTests
         // Act
         var newIssues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 3, Title = "New Title 3" }
+            CreateIssueListItem(3, "New Title 3")
         };
         viewModel.LoadIssues(newIssues);
 
@@ -313,9 +357,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1" },
-            new IssueListItem { Number = 2, Title = "Title 2" },
-            new IssueListItem { Number = 3, Title = "Title 3" }
+            CreateIssueListItem(1, "Title 1"),
+            CreateIssueListItem(2, "Title 2"),
+            CreateIssueListItem(3, "Title 3")
         };
 
         // Act
@@ -333,9 +377,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Test Title 1" },
-            new IssueListItem { Number = 228, Title = "Tests inherited from Generic test fixture" },
-            new IssueListItem { Number = 999, Title = "Issue 999" }
+            CreateIssueListItem(1, "Test Title 1"),
+            CreateIssueListItem(228, "Tests inherited from Generic test fixture"),
+            CreateIssueListItem(999, "Issue 999")
         };
 
         // Act
@@ -355,8 +399,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", State = GithubIssueState.Open },
-            new IssueListItem { Number = 2, Title = "Title 2", State = GithubIssueState.Closed }
+            CreateIssueListItem(1, "Title 1", GithubIssueState.Open),
+            CreateIssueListItem(2, "Title 2", GithubIssueState.Closed)
         };
 
         // Act
@@ -373,8 +417,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1" },
-            new IssueListItem { Number = 2, Title = "Title 2" }
+            CreateIssueListItem(1, "Title 1"),
+            CreateIssueListItem(2, "Title 2")
         };
         viewModel.LoadIssues(issues);
 
@@ -393,8 +437,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", State = GithubIssueState.Open },
-            new IssueListItem { Number = 2, Title = "Title 2", State = GithubIssueState.Closed }
+            CreateIssueListItem(1, "Title 1", GithubIssueState.Open),
+            CreateIssueListItem(2, "Title 2", GithubIssueState.Closed)
         };
         viewModel.LoadIssues(issues);
 
@@ -414,8 +458,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", StateValue = IssueState.New },
-            new IssueListItem { Number = 2, Title = "Title 2", StateValue = IssueState.Synced }
+            CreateIssueListItem(1, "Title 1", stateValue: IssueState.New),
+            CreateIssueListItem(2, "Title 2", stateValue: IssueState.Synced)
         };
         viewModel.LoadIssues(issues);
 
@@ -435,8 +479,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", TestResult = "success" },
-            new IssueListItem { Number = 2, Title = "Title 2", TestResult = "fail" }
+            CreateIssueListItem(1, "Title 1", testResult: "success"),
+            CreateIssueListItem(2, "Title 2", testResult: "fail")
         };
         viewModel.LoadIssues(issues);
 
@@ -456,8 +500,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", TestTypes = "Scripts" },
-            new IssueListItem { Number = 2, Title = "Title 2", TestTypes = "DotNet test" }
+            CreateIssueListItem(1, "Title 1", testTypes: "Scripts"),
+            CreateIssueListItem(2, "Title 2", testTypes: "DotNet test")
         };
         viewModel.LoadIssues(issues);
 
@@ -477,8 +521,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", Framework = ".Net" },
-            new IssueListItem { Number = 2, Title = "Title 2", Framework = ".Net Framework" }
+            CreateIssueListItem(1, "Title 1", framework: ".Net"),
+            CreateIssueListItem(2, "Title 2", framework: ".Net Framework")
         };
         viewModel.LoadIssues(issues);
 
@@ -498,8 +542,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1" },
-            new IssueListItem { Number = 2, Title = "Title 2" }
+            CreateIssueListItem(1, "Title 1"),
+            CreateIssueListItem(2, "Title 2")
         };
         viewModel.LoadIssues(issues);
         viewModel.IssueChanges = new Dictionary<string, ChangeType>
@@ -523,8 +567,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            new IssueListItem { Number = 1, Title = "Title 1", State = GithubIssueState.Open, TestResult = "success" },
-            new IssueListItem { Number = 2, Title = "Title 2", State = GithubIssueState.Closed, TestResult = "fail" }
+            CreateIssueListItem(1, "Title 1", GithubIssueState.Open, "success"),
+            CreateIssueListItem(2, "Title 2", GithubIssueState.Closed, "fail")
         };
         viewModel.LoadIssues(issues);
 

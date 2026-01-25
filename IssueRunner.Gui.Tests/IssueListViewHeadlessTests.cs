@@ -11,6 +11,59 @@ namespace IssueRunner.Gui.Tests;
 [TestFixture]
 public class IssueListViewHeadlessTests : HeadlessTestBase
 {
+    // Helper method to create IssueListItem with proper Metadata and Results
+    private static IssueListItem CreateIssueListItem(
+        int number,
+        string? title = null,
+        GithubIssueState? state = null,
+        StepResultStatus? testResult = null,
+        IssueState? stateValue = null,
+        TestTypes? testTypes = null,
+        string? framework = null,
+        string? notTestedReason = null)
+    {
+        var metadata = new IssueMetadata
+        {
+            Number = number,
+            Title = title ?? $"Issue {number}",
+            State = state ?? GithubIssueState.Open,
+            Labels = [],
+            Url = $"https://github.com/test/repo/issues/{number}"
+        };
+
+        List<IssueResult>? results = null;
+        if (testResult != null)
+        {
+            var status = testResult.ToLowerInvariant() switch
+            {
+                "success" => StepResultStatus.Success,
+                "fail" or "failed" => StepResultStatus.Failed,
+                _ => StepResultStatus.NotRun
+            };
+            results = new List<IssueResult>
+            {
+                new IssueResult
+                {
+                    Number = number,
+                    ProjectPath = "test.csproj",
+                    TargetFrameworks = [],
+                    Packages = [],
+                    TestResult = status,
+                    LastRun = DateTime.UtcNow.ToString("O")
+                }
+            };
+        }
+
+        return new IssueListItem
+        {
+            Metadata = metadata,
+            Results = results,
+            StateValue = stateValue ?? IssueState.Synced,
+            TestTypes = testTypes ?? "",
+            Framework = framework ?? "",
+            NotTestedReason = notTestedReason
+        };
+    }
     [AvaloniaTest]
     public async Task RunTestsButton_AppearsAndIsEnabledWhenFiltersActive()
     {
@@ -31,7 +84,7 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
 
         // Add a test issue and activate a filter
         issueListViewModel.LoadIssues([
-            new IssueListItem { Number = 1, TestTypes = "Scripts", TestResult = "success" }
+            CreateIssueListItem(1, testTypes: "Scripts", testResult: "success")
         ]);
         issueListViewModel.SelectedTestTypes = "Scripts only";
 
@@ -87,8 +140,8 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
 
         vm.LoadIssues(new[]
         {
-            new IssueListItem { Number = 1, TestTypes = "Scripts" },
-            new IssueListItem { Number = 2, TestTypes = "DotNet test" }
+            CreateIssueListItem(1, testTypes: "Scripts"),
+            CreateIssueListItem(2, testTypes: "DotNet test")
         });
 
         // Initial: All
@@ -124,8 +177,8 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
 
         vm.LoadIssues(new[]
         {
-            new IssueListItem { Number = 1, TestTypes = "Scripts" },
-            new IssueListItem { Number = 2, TestTypes = "DotNet test" }
+            CreateIssueListItem(1, testTypes: "Scripts"),
+            CreateIssueListItem(2, testTypes: "DotNet test")
         });
 
         window.Show();
@@ -209,10 +262,10 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
         // Create test issues with different marker types
         vm.LoadIssues(new[]
         {
-            new IssueListItem { Number = 1, StateValue = IssueState.Skipped, NotTestedReason = "Skipped (Ignored)" },
-            new IssueListItem { Number = 2, StateValue = IssueState.Skipped, NotTestedReason = "Skipped (Explicit)" },
-            new IssueListItem { Number = 3, StateValue = IssueState.Skipped, NotTestedReason = "Skipped (GUI)" },
-            new IssueListItem { Number = 4, StateValue = IssueState.Skipped, NotTestedReason = "Skipped (WIP)" }
+            CreateIssueListItem(1, stateValue: IssueState.Skipped, notTestedReason: "Skipped (Ignored)"),
+            CreateIssueListItem(2, stateValue: IssueState.Skipped, notTestedReason: "Skipped (Explicit)"),
+            CreateIssueListItem(3, stateValue: IssueState.Skipped, notTestedReason: "Skipped (GUI)"),
+            CreateIssueListItem(4, stateValue: IssueState.Skipped, notTestedReason: "Skipped (WIP)")
         });
 
         window.Show();
