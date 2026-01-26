@@ -25,14 +25,16 @@ public class RunTestsOptionsViewModelTests
     public void ToRunOptions_IncludesTestTypes_WhenSet()
     {
         // Arrange
-        var viewModel = new RunTestsOptionsViewModel();
-        viewModel.TestTypes = TestTypes.Custom;
-        
+        var viewModel = new RunTestsOptionsViewModel
+        {
+            RunType = RunType.Script
+        };
+
         // Act
         var options = viewModel.ToRunOptions();
         
         // Assert
-        Assert.That(options.TestTypes, Is.EqualTo(TestTypes.Custom));
+        Assert.That(options.RunType, Is.EqualTo(RunType.Script));
     }
 }
 

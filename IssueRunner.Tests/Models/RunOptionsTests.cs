@@ -10,9 +10,9 @@ public class RunOptionsTests
     public void TestTypes_Enum_HasCorrectValues()
     {
         // Assert
-        Assert.That(Enum.IsDefined(typeof(TestTypes), TestTypes.All), Is.True);
-        Assert.That(Enum.IsDefined(typeof(TestTypes), TestTypes.Direct), Is.True);
-        Assert.That(Enum.IsDefined(typeof(TestTypes), TestTypes.Custom), Is.True);
+        Assert.That(Enum.IsDefined(typeof(RunType), RunType.All), Is.True);
+        Assert.That(Enum.IsDefined(typeof(RunType), RunType.DotNet), Is.True);
+        Assert.That(Enum.IsDefined(typeof(RunType), RunType.Script), Is.True);
     }
 
     [Test]
@@ -22,7 +22,7 @@ public class RunOptionsTests
         var options = new RunOptions();
         
         // Assert
-        Assert.That(options.TestTypes, Is.EqualTo(TestTypes.All));
+        Assert.That(options.RunType, Is.EqualTo(RunType.All));
     }
 
     [Test]
@@ -31,11 +31,11 @@ public class RunOptionsTests
         // Arrange & Act
         var options = new RunOptions
         {
-            TestTypes = TestTypes.Direct
+            RunType = RunType.DotNet
         };
         
         // Assert
-        Assert.That(options.TestTypes, Is.EqualTo(TestTypes.Direct));
+        Assert.That(options.RunType, Is.EqualTo(RunType.DotNet));
     }
 
     [Test]
@@ -44,11 +44,11 @@ public class RunOptionsTests
         // Arrange & Act
         var options = new RunOptions
         {
-            TestTypes = TestTypes.Custom
+            RunType = RunType.Script
         };
         
         // Assert
-        Assert.That(options.TestTypes, Is.EqualTo(TestTypes.Custom));
+        Assert.That(options.RunType, Is.EqualTo(RunType.Script));
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class RunOptionsTests
         
         // Act & Assert
         var executionModeProperty = runOptionsType.GetProperty("ExecutionMode");
-        Assert.That(executionModeProperty, Is.Null, "ExecutionMode property should not exist - it was renamed to TestTypes");
+        Assert.That(executionModeProperty, Is.Null, "ExecutionMode property should not exist - it was renamed to RunType");
     }
 }
 

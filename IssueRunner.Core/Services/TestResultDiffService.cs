@@ -28,10 +28,10 @@ public sealed class TestResultDiffService : ITestResultDiffService
     public async Task<List<TestResultDiff>> CompareResultsAsync(string repositoryRoot)
     {
         var diffs = new List<TestResultDiff>();
-        var dataDir = _environmentService.GetDataDirectory(repositoryRoot);
-
+       
         try
         {
+            var dataDir = _environmentService.GetDataDirectory(repositoryRoot);
             // Load current results from results.json
             var currentResults = await LoadResultsAsync(dataDir, "results.json");
 
@@ -69,35 +69,24 @@ public sealed class TestResultDiffService : ITestResultDiffService
                 var projectPath = parts[1];
 
                 // Determine baseline status from IssueResult.TestResult
-                StepResultStatus baselineStatus;
-                if (baselineDict.TryGetValue(key, out var baselineResult))
-                {
-                    baselineStatus = baselineResult.TestResult ?? StepResultStatus.NotRun;
-                }
-                else
-                {
-                    baselineStatus = StepResultStatus.NotRun;
-                }
+
+                baselineDict.TryGetValue(key, out var baselineResult);
+
 
                 // Determine current status from IssueResult.TestResult
-                StepResultStatus currentStatus;
-                if (currentDict.TryGetValue(key, out var currentResult))
-                {
-                    currentStatus = currentResult.TestResult ?? StepResultStatus.NotRun;
-                }
-                else
-                {
-                    currentStatus = StepResultStatus.NotRun;
-                }
+                currentDict.TryGetValue(key, out var currentResult);
 
                 // Skip if no change
-                if (baselineStatus == currentStatus)
+                if ((baselineResult == null && currentResult == null)
+                    || Equals(baselineResult, currentResult)
+                    || baselineResult?.RunResult == RunResult.Skipped
+                    || currentResult?.RunResult == RunResult.Skipped)
                 {
                     continue;
                 }
 
                 // Determine change type
-                var changeType = DetermineChangeType(baselineStatus, currentStatus);
+                var changeType = DetermineChangeType(baselineResult, currentResult);
 
                 // Skip if change type is Skipped (fail -> skipped) - but this shouldn't happen with RunResult
                 if (changeType == ChangeType.Skipped)
@@ -109,8 +98,8 @@ public sealed class TestResultDiffService : ITestResultDiffService
                 {
                     IssueNumber = issueNumber,
                     ProjectPath = projectPath,
-                    BaselineStatus = baselineStatus,
-                    CurrentStatus = currentStatus.ToString(),
+                    BaselineStatus = baselineResult?.TestResult ?? StepResultStatus.NotRun,
+                    CurrentStatus = currentResult?.TestResult ?? StepResultStatus.NotRun,
                     ChangeType = changeType
                 });
             }
@@ -124,27 +113,40 @@ public sealed class TestResultDiffService : ITestResultDiffService
         }
     }
 
-    private static ChangeType DetermineChangeType(StepResultStatus baselineStatus, StepResultStatus currentStatus)
+    private static ChangeType DetermineChangeType(IssueResult? baselineResult, IssueResult? currentResult)
     {
+        if (baselineResult == null && currentResult == null)
+        {
+            // (should be filtered out earlier)
+            return ChangeType.None;
+        }
+
+        if (baselineResult == null && currentResult != null)
+        {
+            // New: Did not exist before, now exists (Blue)
+            return ChangeType.New;
+        }
+
+        if (baselineResult != null && currentResult == null)
+        {
+            // Deleted: Existed before, now does not exist (Dark Grey)
+            return ChangeType.Deleted;
+        }
+
+
+
         // Fixed: Was non-success, now success (Green)
-        if (baselineStatus != StepResultStatus.Success && currentStatus == StepResultStatus.Success)
+        if (baselineResult!.TestResult != StepResultStatus.Success && currentResult!.TestResult == StepResultStatus.Success)
         {
             return ChangeType.Fixed;
         }
 
-        // Regression: Was success, now fail (Red)
-        if (baselineStatus == StepResultStatus.Success && currentStatus == StepResultStatus.Failed)
-        {
+        // Regression: Was success, now fail (Red) 
+        if (baselineResult.TestResult == StepResultStatus.Success && currentResult!.TestResult == StepResultStatus.Failed)
             return ChangeType.Regression;
-        }
-
-        // CompileToFail: Was not run, now fail (Orange)
-        if (baselineStatus == StepResultStatus.NotRun && currentStatus == StepResultStatus.Failed)
-        {
-            return ChangeType.CompileToFail;
-        }
-
-        // Other: Any other status change (Grey)
+        // BuildToFail: Was not run, now fail (Orange)
+        if ((baselineResult.TestResult == StepResultStatus.NotRun || baselineResult.RunResult== RunResult.NotRun) && currentResult!.TestResult == StepResultStatus.Failed)
+            return ChangeType.BuildToFail;
         return ChangeType.Other;
     }
 

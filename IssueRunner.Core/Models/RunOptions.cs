@@ -43,7 +43,7 @@ public sealed class RunOptions
     /// <summary>
     /// Gets or sets the test types filter.
     /// </summary>
-    public TestTypes TestTypes { get; init; } = TestTypes.All;
+    public RunType RunType { get; init; } = RunType.All;
 
     /// <summary>
     /// Gets or sets the logging verbosity.
@@ -74,16 +74,16 @@ public enum TestScope
 /// <summary>
 /// Test types filter.
 /// </summary>
-public enum TestTypes
+public enum RunType
 {
     /// <summary>All test types.</summary>
     All,
     
     /// <summary>Only direct dotnet test execution.</summary>
-    Direct,
+    DotNet,
     
     /// <summary>Only custom script execution.</summary>
-    Custom
+    Script
 }
 
 /// <summary>

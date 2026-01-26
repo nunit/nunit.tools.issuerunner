@@ -37,8 +37,8 @@ public sealed partial class TestResultDiffServiceTests
         var currentResults = new List<IssueResult>();
         var baselineResults = new List<IssueResult>();
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -108,18 +108,18 @@ public sealed partial class TestResultDiffServiceTests
 
         var results = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 123,
                 ProjectPath = "TestProject/Test.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(results));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(results));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(results));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(results));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -156,30 +156,32 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 123,
                 ProjectPath = "TestProject/Test.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = StepResultStatus.Failed
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
+                TestResult = StepResultStatus.Failed,
+                RunResult = RunResult.Run
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 123,
                 ProjectPath = "TestProject/Test.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = StepResultStatus.Success
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
+                TestResult = StepResultStatus.Success,
+                RunResult = RunResult.Run
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -193,8 +195,8 @@ public sealed partial class TestResultDiffServiceTests
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].IssueNumber, Is.EqualTo(123));
             Assert.That(result[0].ProjectPath, Is.EqualTo("testproject/test.csproj"));
-            Assert.That(result[0].BaselineStatus, Is.EqualTo("fail"));
-            Assert.That(result[0].CurrentStatus, Is.EqualTo("success"));
+            Assert.That(result[0].BaselineStatus, Is.EqualTo(StepResultStatus.Failed));
+            Assert.That(result[0].CurrentStatus, Is.EqualTo(StepResultStatus.Success));
             Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.Fixed));
         }
         finally
@@ -221,30 +223,30 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 456,
                 ProjectPath = "AnotherProject/Another.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 456,
                 ProjectPath = "AnotherProject/Another.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -257,8 +259,8 @@ public sealed partial class TestResultDiffServiceTests
             Assert.That(result, Is.Not.Null);
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].IssueNumber, Is.EqualTo(456));
-            Assert.That(result[0].BaselineStatus, Is.EqualTo("success"));
-            Assert.That(result[0].CurrentStatus, Is.EqualTo("fail"));
+            Assert.That(result[0].BaselineStatus, Is.EqualTo(StepResultStatus.Success));
+            Assert.That(result[0].CurrentStatus, Is.EqualTo(StepResultStatus.Failed));
             Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.Regression));
         }
         finally
@@ -270,7 +272,7 @@ public sealed partial class TestResultDiffServiceTests
 
     /// <summary>
     /// Tests CompareResultsAsync when a test went from not run to fail.
-    /// Expected: Returns diff with ChangeType.CompileToFail.
+    /// Expected: Returns diff with ChangeType.BuildToFail.
     /// </summary>
     [Test]
     public async Task CompareResultsAsync_WithNotRunToFail_ReturnsDiffWithCompileToFailChangeType()
@@ -285,30 +287,32 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 789,
                 ProjectPath = "CompileProject/Compile.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = null
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
+                TestResult = null,
+                RunResult = RunResult.NotRun
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 789,
                 ProjectPath = "CompileProject/Compile.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = StepResultStatus.Failed
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
+                TestResult = StepResultStatus.Failed,
+                RunResult = RunResult.Run
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -321,9 +325,9 @@ public sealed partial class TestResultDiffServiceTests
             Assert.That(result, Is.Not.Null);
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].IssueNumber, Is.EqualTo(789));
-            Assert.That(result[0].BaselineStatus, Is.EqualTo("not run"));
-            Assert.That(result[0].CurrentStatus, Is.EqualTo("fail"));
-            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.CompileToFail));
+            Assert.That(result[0].BaselineStatus, Is.EqualTo(StepResultStatus.NotRun));
+            Assert.That(result[0].CurrentStatus, Is.EqualTo(StepResultStatus.Failed));
+            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.BuildToFail));
         }
         finally
         {
@@ -349,30 +353,33 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 111,
                 ProjectPath = "SkipProject/Skip.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = StepResultStatus.Failed
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
+                TestResult = StepResultStatus.Failed,
+                RunResult = RunResult.Run
+                
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 111,
                 ProjectPath = "SkipProject/Skip.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
-                TestResult = StepResultStatus.NotRun
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
+                TestResult = StepResultStatus.NotRun,
+                RunResult = RunResult.Skipped
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -409,30 +416,30 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 999,
                 ProjectPath = "TestProject/Test.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 999,
                 ProjectPath = "TESTPROJECT/TEST.CSPROJ",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -471,20 +478,20 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 222,
                 ProjectPath = "OldProject/Old.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             }
         };
 
         var currentResults = new List<IssueResult>();
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -497,8 +504,8 @@ public sealed partial class TestResultDiffServiceTests
             Assert.That(result, Is.Not.Null);
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].IssueNumber, Is.EqualTo(222));
-            Assert.That(result[0].BaselineStatus, Is.EqualTo("success"));
-            Assert.That(result[0].CurrentStatus, Is.EqualTo("not run"));
+            Assert.That(result[0].BaselineStatus, Is.EqualTo(StepResultStatus.Success));
+            Assert.That(result[0].CurrentStatus, Is.EqualTo(StepResultStatus.NotRun));
         }
         finally
         {
@@ -526,18 +533,18 @@ public sealed partial class TestResultDiffServiceTests
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 333,
                 ProjectPath = "NewProject/New.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -550,9 +557,9 @@ public sealed partial class TestResultDiffServiceTests
             Assert.That(result, Is.Not.Null);
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].IssueNumber, Is.EqualTo(333));
-            Assert.That(result[0].BaselineStatus, Is.EqualTo("not run"));
-            Assert.That(result[0].CurrentStatus, Is.EqualTo("fail"));
-            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.CompileToFail));
+            Assert.That(result[0].BaselineStatus, Is.EqualTo(StepResultStatus.NotRun));
+            Assert.That(result[0].CurrentStatus, Is.EqualTo(StepResultStatus.Failed));
+            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.New));
         }
         finally
         {
@@ -578,46 +585,46 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 1,
                 ProjectPath = "Project1/Test1.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             },
-            new IssueResult
+            new()
             {
                 Number = 2,
                 ProjectPath = "Project2/Test2.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 1,
                 ProjectPath = "Project1/Test1.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             },
-            new IssueResult
+            new()
             {
                 Number = 2,
                 ProjectPath = "Project2/Test2.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -658,7 +665,7 @@ public sealed partial class TestResultDiffServiceTests
             (StepResultStatus.Success, StepResultStatus.Failed, ChangeType.Regression),
             (StepResultStatus.Failed, StepResultStatus.Success, ChangeType.Fixed),
             (StepResultStatus.Failed, StepResultStatus.Failed, ChangeType.Other), // This will be skipped as no change
-            (StepResultStatus.NotRun, StepResultStatus.Failed, ChangeType.CompileToFail)
+            (StepResultStatus.NotRun, StepResultStatus.Failed, CompileToFail: ChangeType.BuildToFail)
         };
 
         foreach (var (baselineStatus, currentStatus, expectedChangeType) in testCases)
@@ -683,30 +690,30 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 555,
                 ProjectPath = "StatusProject/Status.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = baselineStatus
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 555,
                 ProjectPath = "StatusProject/Status.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = currentStatus
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -744,46 +751,46 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 100,
                 ProjectPath = "ProjectA/TestA.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             },
-            new IssueResult
+            new()
             {
                 Number = 100,
                 ProjectPath = "ProjectB/TestB.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 100,
                 ProjectPath = "ProjectA/TestA.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Success
             },
-            new IssueResult
+            new()
             {
                 Number = 100,
                 ProjectPath = "ProjectB/TestB.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -826,8 +833,8 @@ public sealed partial class TestResultDiffServiceTests
 
         environmentService.GetDataDirectory(Arg.Any<string>()).Returns(dataDir);
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), "invalid json {{{");
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), "[]");
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), "invalid json {{{");
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), "[]");
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -885,8 +892,8 @@ public sealed partial class TestResultDiffServiceTests
 
         environmentService.GetDataDirectory(string.Empty).Returns(dataDir);
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), "[]");
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), "[]");
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), "[]");
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), "[]");
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -920,8 +927,8 @@ public sealed partial class TestResultDiffServiceTests
 
         environmentService.GetDataDirectory("   ").Returns(dataDir);
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), "[]");
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), "[]");
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), "[]");
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), "[]");
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -941,8 +948,8 @@ public sealed partial class TestResultDiffServiceTests
     }
 
     /// <summary>
-    /// Tests CompareResultsAsync with ChangeType.Other scenario.
-    /// Expected: Returns diff with ChangeType.Other.
+    /// Tests CompareResultsAsync with ChangeType.None scenario.
+    /// Expected: Returns diff with ChangeType.None.
     /// </summary>
     [Test]
     public async Task CompareResultsAsync_WithOtherChangeType_ReturnsDiffWithOtherChangeType()
@@ -957,30 +964,30 @@ public sealed partial class TestResultDiffServiceTests
 
         var baselineResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 777,
-                ProjectPath = "OtherProject/Other.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                ProjectPath = "OtherProject/None.csproj",
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.NotRun
             }
         };
 
         var currentResults = new List<IssueResult>
         {
-            new IssueResult
+            new()
             {
                 Number = 777,
-                ProjectPath = "OtherProject/Other.csproj",
-                TargetFrameworks = new List<string> { "net6.0" },
-                Packages = new List<string> { "NUnit=3.13.0" },
+                ProjectPath = "OtherProject/None.csproj",
+                TargetFrameworks = ["net6.0"],
+                Packages = ["NUnit=3.13.0"],
                 TestResult = StepResultStatus.Failed
             }
         };
 
-        File.WriteAllText(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
-        File.WriteAllText(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results.json"), JsonSerializer.Serialize(currentResults));
+        await File.WriteAllTextAsync(Path.Combine(dataDir, "results-baseline.json"), JsonSerializer.Serialize(baselineResults));
 
         var service = new TestResultDiffService(environmentService, logger);
 
@@ -993,9 +1000,9 @@ public sealed partial class TestResultDiffServiceTests
             Assert.That(result, Is.Not.Null);
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].IssueNumber, Is.EqualTo(777));
-            Assert.That(result[0].BaselineStatus, Is.EqualTo("not run"));
-            Assert.That(result[0].CurrentStatus, Is.EqualTo("fail"));
-            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.CompileToFail));
+            Assert.That(result[0].BaselineStatus, Is.EqualTo(StepResultStatus.NotRun));
+            Assert.That(result[0].CurrentStatus, Is.EqualTo(StepResultStatus.Failed));
+            Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.BuildToFail));
         }
         finally
         {

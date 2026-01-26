@@ -53,10 +53,26 @@ public sealed class IssueListLoader(
             try
             {
                 var metadataJson = await File.ReadAllTextAsync(metadataPath);
-                var metadata = JsonSerializer.Deserialize<List<IssueMetadata>>(metadataJson, JsonOptions) ?? [];
-
-                metadataDict = metadata.ToDictionary(m => m.Number, m => m);
-
+                
+                // Handle empty or whitespace files
+                if (string.IsNullOrWhiteSpace(metadataJson))
+                {
+                    log?.Invoke("Warning: Metadata file is empty or contains only whitespace");
+                }
+                else
+                {
+                    var metadata = JsonSerializer.Deserialize<List<IssueMetadata>>(metadataJson, JsonOptions) ?? [];
+                    
+                    // Filter out entries with invalid Number values before creating dictionary
+                    var validMetadata = metadata.Where(m => m.Number > 0).ToList();
+                    
+                    if (validMetadata.Count != metadata.Count)
+                    {
+                        log?.Invoke($"Warning: Filtered out {metadata.Count - validMetadata.Count} metadata entries with invalid numbers");
+                    }
+                    
+                    metadataDict = validMetadata.ToDictionary(m => m.Number, m => m);
+                }
             }
             catch (Exception ex)
             {
@@ -177,7 +193,7 @@ public sealed class IssueListLoader(
         var diffs = await diffService.CompareResultsAsync(repositoryRoot);
         var issueChanges = new Dictionary<string, ChangeType>();
         var issueStatusDisplay = new Dictionary<int, string>();
-        
+
         // Group diffs by issue number
         var diffsByIssue = diffs
             .GroupBy(d => d.IssueNumber)
@@ -188,13 +204,12 @@ public sealed class IssueListLoader(
             var key = $"Issue{diff.IssueNumber}|{diff.ProjectPath}";
             issueChanges[key] = diff.ChangeType;
 
-            issueStatusDisplay[diff.IssueNumber] = diff.ChangeType switch
-            {
+            if (diff.ChangeType ==
                 // Set StatusDisplay for regressions (show "=> fail")
-                ChangeType.Regression => "=> fail",
-                ChangeType.Fixed or ChangeType.CompileToFail or ChangeType.Other => diff.CurrentStatus,
-                _ => issueStatusDisplay[diff.IssueNumber]
-            };
+                ChangeType.Regression)
+                issueStatusDisplay[diff.IssueNumber] = "=> fail";
+            else if (diff.ChangeType is ChangeType.Fixed or ChangeType.BuildToFail or ChangeType.Other)
+                issueStatusDisplay[diff.IssueNumber] = diff.CurrentStatus.ToString();
         }
 
         log?.Invoke($"Discovered {folders.Count} issue folders to load");
@@ -209,176 +224,252 @@ public sealed class IssueListLoader(
         {
             var issueNum = kvp.Key;
             var folderPath = kvp.Value;
-            var metadata = metadataDict.GetValueOrDefault(issueNum);
             
-            // Get results list for this issue
-            var issueResults = resultsByIssue.TryGetValue(issueNum, out var results) ? results : null;
-            
-            // Get diffs list for this issue
-            var issueDiffs = diffsByIssue.TryGetValue(issueNum, out var issueDiffsList) ? issueDiffsList : null;
-            
-            // Get worst result for comparison with baseline
-            var result = resultsByIssueForComparison.TryGetValue(issueNum, out var r) ? r : (Result: "Not tested", LastRun: "");
-
-            // Determine TestTypes based on whether issue has custom scripts
-            var hasCustomScripts = testExecutionService.HasCustomRunners(folderPath);
-            // Column display values: "Scripts" or "DotNet test"
-            var testTypes = hasCustomScripts ? "Scripts" : "DotNet test";
-
-            // Determine Framework type (.Net or .Net Framework)
-            var framework = "";
             try
             {
-                var projectFiles = projectAnalyzerService.FindProjectFiles(folderPath);
-                var hasNetFx = false;
-                var hasNet = false;
+                var metadata = metadataDict.GetValueOrDefault(issueNum);
 
-                foreach (var projectFile in projectFiles)
+                // Get results list for this issue
+                var issueResults = resultsByIssue.TryGetValue(issueNum, out var results) ? results : null;
+
+                // Get diffs list for this issue
+                var issueDiffs = diffsByIssue.TryGetValue(issueNum, out var issueDiffsList) ? issueDiffsList : null;
+
+                // Get worst result for comparison with baseline
+                var result = resultsByIssueForComparison.TryGetValue(issueNum, out var r) ? r : (Result: "Not tested", LastRun: "");
+
+                // Determine RunType based on whether issue has custom scripts
+                var hasCustomScripts = testExecutionService.HasCustomRunners(folderPath);
+                // Column display values: "Scripts" or "DotNet test"
+                var runType = hasCustomScripts ? RunType.Script : RunType.DotNet;
+
+                // Early check for csproj files
+                var projectFiles = projectAnalyzerService.FindProjectFiles(folderPath);
+                
+                // Determine Framework type (.Net or .Net Framework)
+                var framework = Frameworks.None;
+                try
                 {
-                    var (targetFrameworks, _) = projectAnalyzerService.ParseProjectFile(projectFile);
-                    foreach (var tfm in targetFrameworks)
+                    var hasNetFx = false;
+                    var hasNet = false;
+
+                    foreach (var projectFile in projectFiles)
                     {
-                        // Check if it's .NET Framework (net35, net40, net45, net451, net452, net46, net461, net462, net47, net471, net472, net48, net481)
-                        if (tfm.StartsWith("net", StringComparison.OrdinalIgnoreCase) &&
-                            !tfm.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase) &&
-                            !tfm.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
+                        var (targetFrameworks, _) = projectAnalyzerService.ParseProjectFile(projectFile);
+                        foreach (var tfm in targetFrameworks)
                         {
-                            // Check if it's a numeric framework (net35, net40, etc.) or net4xx
-                            var tfmLower = tfm.ToLowerInvariant();
-                            if (tfmLower == "net35" || tfmLower == "net40" ||
-                                tfmLower.StartsWith("net4") || tfmLower.StartsWith("net3"))
+                            // Check if it's .NET Framework (net35, net40, net45, net451, net452, net46, net461, net462, net47, net471, net472, net48, net481)
+                            if (tfm.StartsWith("net", StringComparison.OrdinalIgnoreCase) &&
+                                !tfm.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase) &&
+                                !tfm.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
                             {
-                                hasNetFx = true;
-                            }
-                            else if (tfmLower.StartsWith("net5") || tfmLower.StartsWith("net6") ||
-                                     tfmLower.StartsWith("net7") || tfmLower.StartsWith("net8") ||
-                                     tfmLower.StartsWith("net9") || tfmLower.StartsWith("net10"))
-                            {
-                                hasNet = true;
+                                // Check if it's a numeric framework (net35, net40, etc.) or net4xx
+                                var tfmLower = tfm.ToLowerInvariant();
+                                if (tfmLower == "net35" || tfmLower == "net40" ||
+                                    tfmLower.StartsWith("net4") || tfmLower.StartsWith("net3"))
+                                {
+                                    hasNetFx = true;
+                                }
+                                else if (tfmLower.StartsWith("net5") || tfmLower.StartsWith("net6") ||
+                                         tfmLower.StartsWith("net7") || tfmLower.StartsWith("net8") ||
+                                         tfmLower.StartsWith("net9") || tfmLower.StartsWith("net10"))
+                                {
+                                    hasNet = true;
+                                }
                             }
                         }
                     }
-                }
 
-                // Prioritize .NET Framework if both are present
-                if (hasNetFx)
-                {
-                    framework = ".Net Framework";
-                }
-                else if (hasNet)
-                {
-                    framework = ".Net";
-                }
-                // If no projects found or no frameworks detected, leave empty (will show in "All")
-            }
-            catch
-            {
-                // If framework detection fails, leave empty
-            }
-
-            // Determine state value and detailed state
-            // State logic: New (metadata only, just arrived from GitHub), Synced (has metadata and folder),
-            // Failed restore/compile (from results.json build_result or restore_result),
-            // Runnable (ready to run), Skipped (has marker file)
-            IssueState stateValue;
-            var detailedState = metadata?.State.ToString() ?? "Unknown";
-            string? notTestedReason = null;
-
-            if (markerService.ShouldSkipIssue(folderPath))
-            {
-                var markerReason = markerService.GetMarkerReason(folderPath);
-                detailedState = "skipped";
-                stateValue = IssueState.Skipped;
-                // Always show marker reason for skipped issues, regardless of test result
-                notTestedReason = markerReason;
-            }
-            else if (failedRestores.Contains(issueNum))
-            {
-                // failedRestores is populated from results.json (checks restore_result == "fail" or RestoreError)
-                stateValue = IssueState.FailedRestore;
-                detailedState = "not restored";
-                // Include restore error message if available
-                notTestedReason = restoreErrors.TryGetValue(issueNum, out var restoreError) 
-                    ? $"Restore failed: {restoreError.Trim()}" 
-                    : "Restore failed";
-            }
-            else if (failedBuilds.Contains(issueNum))
-            {
-                // failedBuilds is populated from results.json (checks build_result == "fail")
-                stateValue = IssueState.FailedCompile;
-                detailedState = "not compiling";
-                if (result.Result == "Not tested" || result.Result == "NotRun" || string.IsNullOrEmpty(result.Result))
-                {
-                    notTestedReason = "Not compiling";
-                }
-            }
-            else if (metadata != null)
-            {
-                // No test results - could be New (just synced) or Synced (ready to process)
-                // For now, if it has metadata, consider it Synced (has been synced with GitHub and folders)
-                // Has metadata - determine state based on test results
-                // New: just synced from GitHub, no test results yet
-                // Synced: has metadata and folder, ready to process
-                // Runnable: has been tested (has test result)
-                stateValue = string.IsNullOrEmpty(result.Result) || result.Result == "Not tested" || result.Result == "NotRun"
-                    ? IssueState.Synced
-                    : IssueState.Runnable;
-            }
-            else
-            {
-                // No metadata - created before, synced with GitHub and folders
-                stateValue = IssueState.Synced;
-            }
-
-            // Check if this issue has a change
-            var changeType = ChangeType.None;
-            string? statusDisplay = null; // Null by default, will use TestResult via TargetNullValue, or set if there's a change
-            string? changeTooltip = null;
-
-            // Calculate ChangeType when baseline exists (for coloring in Current view and filtering in Diff view)
-            var baselineExists = baselineResultsByIssue.TryGetValue(issueNum, out var baselineResult);
-            var currentExists = resultsByIssueForComparison.TryGetValue(issueNum, out var currentResultTuple);
-            
-            // Only set ChangeType if issue exists in BOTH baseline and current with different status
-            // New issues (only in current) or removed issues (only in baseline) should not show in Diff view
-            if (baselineExists && currentExists)
-            {
-                // Both exist - compare them
-                // Parse enum strings from DetermineWorstResult
-                var baselineStatusEnum = Enum.TryParse<StepResultStatus>(baselineResult.Result, true, out var bs) ? bs : StepResultStatus.NotRun;
-                var currentStatusEnum = Enum.TryParse<StepResultStatus>(currentResultTuple.Result, true, out var cs) ? cs : StepResultStatus.NotRun;
-                
-                if (baselineStatusEnum != currentStatusEnum)
-                {
-                    changeType = DetermineChangeType(baselineStatusEnum, currentStatusEnum);
-                    changeTooltip = FormatChangeTooltip(baselineStatusEnum.ToString(), currentStatusEnum.ToString());
-                    
-                    statusDisplay = changeType switch
+                    // Prioritize .NET Framework if both are present
+                    if (hasNetFx)
                     {
-                        ChangeType.Regression => "=> fail",
-                        ChangeType.Fixed or ChangeType.CompileToFail or ChangeType.Other => currentStatusEnum.ToString(),
-                        _ => statusDisplay
-                    };
+                        framework = Frameworks.DotNetFramework;
+                    }
+                    else if (hasNet)
+                    {
+                        framework = Frameworks.DotNet;
+                    }
+                    // If no projects found or no frameworks detected, leave empty (will show in "All")
                 }
-                // If baselineStatus == currentStatus, changeType remains None (no change)
-            }
-            // If issue only exists in one (new or removed), changeType remains None (don't show in Diff view)
+                catch
+                {
+                    // If framework detection fails, leave empty
+                }
 
-            issues.Add(new IssueListItem
+                // Determine state value and detailed state
+                // State logic: Marker file → No csproj → Missing metadata/initial_state → Failed restore → Failed build → Normal processing
+                IssueState stateValue;
+                var detailedState = metadata?.State.ToString() ?? "Unknown";
+                string? notTestedReason = null;
+
+                if (markerService.ShouldSkipIssue(folderPath))
+                {
+                    var markerReason = markerService.GetMarkerReason(folderPath);
+                    detailedState = "skipped";
+                    stateValue = IssueState.Skipped;
+                    // Always show marker reason for skipped issues, regardless of test result
+                    notTestedReason = markerReason;
+                }
+                else if (projectFiles.Count == 0)
+                {
+                    // No csproj files found - nothing to run
+                    stateValue = IssueState.NothingToRun;
+                    detailedState = "no projects";
+                    notTestedReason = "No project files found";
+                }
+                else
+                {
+                    // Check for metadata file in issue folder
+                    var issueMetadataPath = Path.Combine(folderPath, "issue_metadata.json");
+                    var hasIssueMetadata = File.Exists(issueMetadataPath);
+                    if (hasIssueMetadata)
+                    {
+                        try
+                        {
+                            var issueMetadataJson = await File.ReadAllTextAsync(issueMetadataPath);
+                            // Check if file is empty or contains only whitespace
+                            hasIssueMetadata = !string.IsNullOrWhiteSpace(issueMetadataJson);
+                        }
+                        catch
+                        {
+                            // If reading fails, consider it invalid/empty
+                            hasIssueMetadata = false;
+                        }
+                    }
+
+                    // Check for initial_state file
+                    var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
+                    var hasInitialState = File.Exists(initialStatePath);
+
+                    // If missing metadata or initial_state, mark as NotSynced
+                    if (!hasIssueMetadata || !hasInitialState)
+                    {
+                        stateValue = IssueState.NotSynced;
+                        detailedState = "not synced";
+                        if (!hasIssueMetadata && !hasInitialState)
+                        {
+                            notTestedReason = "Missing metadata and initial state files";
+                        }
+                        else if (!hasIssueMetadata)
+                        {
+                            notTestedReason = "Missing metadata file";
+                        }
+                        else
+                        {
+                            notTestedReason = "Missing initial state file";
+                        }
+                    }
+                    else if (failedRestores.Contains(issueNum))
+                    {
+                        // failedRestores is populated from results.json (checks restore_result == "fail" or RestoreError)
+                        stateValue = IssueState.FailedRestore;
+                        detailedState = "not restored";
+                        // Include restore error message if available
+                        notTestedReason = restoreErrors.TryGetValue(issueNum, out var restoreError)
+                            ? $"Restore failed: {restoreError.Trim()}"
+                            : "Restore failed";
+                    }
+                    else if (failedBuilds.Contains(issueNum))
+                    {
+                        // failedBuilds is populated from results.json (checks build_result == "fail")
+                        stateValue = IssueState.FailedCompile;
+                        detailedState = "not compiling";
+                        if (result.Result == "Not tested" || result.Result == "NotRun" || string.IsNullOrEmpty(result.Result))
+                        {
+                            notTestedReason = "Not compiling";
+                        }
+                    }
+                    else if (metadata != null)
+                    {
+                        // No test results - could be New (just synced) or Synced (ready to process)
+                        // For now, if it has metadata, consider it Synced (has been synced with GitHub and folders)
+                        // Has metadata - determine state based on test results
+                        // New: just synced from GitHub, no test results yet
+                        // Synced: has metadata and folder, ready to process
+                        // Runnable: has been tested (has test result)
+                        stateValue = string.IsNullOrEmpty(result.Result) || result.Result == "Not tested" || result.Result == "NotRun"
+                            ? IssueState.Synced
+                            : IssueState.Runnable;
+                    }
+                    else
+                    {
+                        // No metadata - created before, synced with GitHub and folders
+                        stateValue = IssueState.Synced;
+                    }
+                }
+
+                // Check if this issue has a change
+                var changeType = ChangeType.None;
+                string? statusDisplay = null; // Null by default, will use TestResult via TargetNullValue, or set if there's a change
+                string? changeTooltip = null;
+
+                // Calculate ChangeType when baseline exists (for coloring in Current view and filtering in Diff view)
+                var baselineExists = baselineResultsByIssue.TryGetValue(issueNum, out var baselineResult);
+                var currentExists = resultsByIssueForComparison.TryGetValue(issueNum, out var currentResultTuple);
+
+                // Only set ChangeType if issue exists in BOTH baseline and current with different status
+                // New issues (only in current) or removed issues (only in baseline) should not show in Diff view
+                if (baselineExists && currentExists)
+                {
+                    // Both exist - compare them
+                    // Parse enum strings from DetermineWorstResult
+                    var baselineStatusEnum = Enum.TryParse<StepResultStatus>(baselineResult.Result, true, out var bs) ? bs : StepResultStatus.NotRun;
+                    var currentStatusEnum = Enum.TryParse<StepResultStatus>(currentResultTuple.Result, true, out var cs) ? cs : StepResultStatus.NotRun;
+
+                    if (baselineStatusEnum != currentStatusEnum)
+                    {
+                        changeType = DetermineChangeType(baselineStatusEnum, currentStatusEnum);
+                        changeTooltip = FormatChangeTooltip(baselineStatusEnum.ToString(), currentStatusEnum.ToString());
+
+                        statusDisplay = changeType switch
+                        {
+                            ChangeType.Regression => "=> fail",
+                            ChangeType.Fixed or ChangeType.BuildToFail or ChangeType.Other => currentStatusEnum.ToString(),
+                            _ => statusDisplay
+                        };
+                    }
+                    // If baselineStatus == currentStatus, changeType remains None (no change)
+                }
+                // If issue only exists in one (new or removed), changeType remains None (don't show in Diff view)
+
+                issues.Add(new IssueListItem
+                {
+                    Metadata = metadata,
+                    Results = issueResults,
+                    Diffs = issueDiffs,
+                    StateValue = stateValue,
+                    DetailedState = detailedState,
+                    NotTestedReason = notTestedReason,
+                    RunType = runType,
+                    GitHubUrl = !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}{issueNum}" : "",
+                    Framework = framework,
+                    ChangeType = changeType,
+                    StatusDisplay = statusDisplay,
+                    ChangeTooltip = changeTooltip
+                });
+            }
+            catch (Exception ex)
             {
-                Metadata = metadata,
-                Results = issueResults,
-                Diffs = issueDiffs,
-                StateValue = stateValue,
-                DetailedState = detailedState,
-                NotTestedReason = notTestedReason,
-                TestTypes = testTypes,
-                GitHubUrl = !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}{issueNum}" : "",
-                Framework = framework,
-                ChangeType = changeType,
-                StatusDisplay = statusDisplay,
-                ChangeTooltip = changeTooltip
-            });
+                // Log error but continue processing other issues
+                log?.Invoke($"Warning: Failed to load issue {issueNum}: {ex.Message}");
+                
+                // Add a basic issue entry so it still appears in the list
+                issues.Add(new IssueListItem
+                {
+                    Metadata = metadataDict.GetValueOrDefault(issueNum),
+                    Results = null,
+                    Diffs = null,
+                    StateValue = IssueState.Synced,
+                    DetailedState = "error",
+                    NotTestedReason = $"Error loading issue: {ex.Message}",
+                    RunType = RunType.DotNet,
+                    GitHubUrl = !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}{issueNum}" : "",
+                    Framework = Frameworks.None,
+                    ChangeType = ChangeType.None,
+                    StatusDisplay = null,
+                    ChangeTooltip = null
+                });
+            }
         }
 
         return new IssueListLoadResult
@@ -403,13 +494,13 @@ public sealed class IssueListLoader(
             return ChangeType.Regression;
         }
 
-        // CompileToFail: Was not run, now fail (Orange)
+        // BuildToFail: Was not run, now fail (Orange)
         if (baselineStatus == StepResultStatus.NotRun && currentStatus == StepResultStatus.Failed)
         {
-            return ChangeType.CompileToFail;
+            return ChangeType.BuildToFail;
         }
 
-        // Other: Any other status change
+        // None: Any other status change
         if (baselineStatus != currentStatus)
         {
             return ChangeType.Other;

@@ -32,7 +32,7 @@ public class ChangeTypeToColorConverter : IValueConverter
         {
             ChangeType.Fixed => FixedBrush,
             ChangeType.Regression => RegressionBrush,
-            ChangeType.CompileToFail => CompileToFailBrush,
+            ChangeType.BuildToFail => CompileToFailBrush,
             ChangeType.Other => OtherBrush,
             _ => DefaultBrush
         };

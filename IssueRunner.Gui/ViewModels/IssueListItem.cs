@@ -44,6 +44,24 @@ public class IssueListItem
             if (Results == null || Results.Count == 0)
                 return "Not tested";
             
+            // Check for restore failures first (highest priority)
+            var restoreFailure = Results.FirstOrDefault(r =>
+                r.RestoreResult == StepResultStatus.Failed ||
+                !string.IsNullOrWhiteSpace(r.RestoreError));
+            
+            if (restoreFailure != null)
+            {
+                return "not restored";
+            }
+            
+            // Check for build failures
+            var buildFailure = Results.FirstOrDefault(r => r.BuildResult == StepResultStatus.Failed);
+            if (buildFailure != null)
+            {
+                return "not compiling";
+            }
+            
+            // Otherwise, determine worst test result
             var (result, _) = DetermineWorstResult(Results);
             return result;
         }
@@ -70,9 +88,9 @@ public class IssueListItem
     public IssueState StateValue { get; set; } = IssueState.New; // New state enum value
     public string DetailedState { get; set; } = ""; // Enhanced state (includes not compiling, skipped, etc.) - for display
     public string? NotTestedReason { get; set; } // Why it's not tested (marker reason, not compiling, etc.)
-    public string TestTypes { get; set; } = ""; // "Scripts" or "DotNet test"
+    public RunType RunType { get; set; } = RunType.All; // "Scripts" or "DotNet test"
     public string GitHubUrl { get; set; } = ""; // GitHub issue URL
-    public string Framework { get; set; } = ""; // ".Net" or ".Net Framework"
+    public Frameworks Framework { get; set; } = Frameworks.None; // ".Net" or ".Net Framework"
     
     // ChangeType, StatusDisplay, and ChangeTooltip are computed in IssueListLoader from baseline comparison
     // Keeping them as settable properties since baseline comparison requires external context

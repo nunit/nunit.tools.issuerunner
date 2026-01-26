@@ -17,6 +17,7 @@ public enum RunResult
     /// <summary>Missing initial state file (not synced).</summary>
     NotSynced,
     
-    /// <summary>Not run for other reasons (or default/unknown state).</summary>
+    /// <summary>Not run for other reasons like missing csprojs, or missing other prerequisites.</summary>
     NotRun
+
 }

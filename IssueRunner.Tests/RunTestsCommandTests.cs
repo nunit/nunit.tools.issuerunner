@@ -165,7 +165,7 @@ public class RunTestsCommandTests
 
         var options = new RunOptions
         {
-            TestTypes = TestTypes.Custom
+            RunType = RunType.Script
         };
 
         // Act
@@ -195,7 +195,7 @@ public class RunTestsCommandTests
 
         var options = new RunOptions
         {
-            TestTypes = TestTypes.Direct
+            RunType = RunType.DotNet
         };
 
         // Act
@@ -223,7 +223,7 @@ public class RunTestsCommandTests
 
         var options = new RunOptions
         {
-            TestTypes = TestTypes.All
+            RunType = RunType.All
         };
 
         // Act

@@ -335,13 +335,13 @@ public sealed class RunTestsCommand
             _ => filtered
         };
 
-        if (options.TestTypes != TestTypes.All)
+        if (options.RunType != RunType.All)
         {
             filtered = filtered
                 .Where(kvp =>
                 {
                     var hasCustom = _testExecution.HasCustomRunners(kvp.Value);
-                    return options.TestTypes == TestTypes.Custom
+                    return options.RunType == RunType.Script
                         ? hasCustom
                         : !hasCustom;
                 })

@@ -126,7 +126,7 @@ public class TestResultDiffServiceTests
 
         // Assert
         Assert.That(result, Has.Count.EqualTo(1));
-        Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.CompileToFail));
+        Assert.That(result[0].ChangeType, Is.EqualTo(ChangeType.BuildToFail));
     }
 
     [Test]

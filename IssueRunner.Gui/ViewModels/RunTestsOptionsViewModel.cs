@@ -26,7 +26,7 @@ public class RunTestsOptionsViewModel : ViewModelBase
         if (lastOptions != null)
         {
             _feed = lastOptions.Feed;
-            _testTypes = lastOptions.TestTypes;
+            _runType = lastOptions.RunType;
             _verbosity = lastOptions.Verbosity;
             _rerunFailedTests = lastOptions.RerunFailedTests;
             _skipNetFx = lastOptions.SkipNetFx;
@@ -51,7 +51,7 @@ public class RunTestsOptionsViewModel : ViewModelBase
         });
         
         // Update expected count when options change
-        this.WhenAnyValue(x => x.TestTypes, x => x.IssueNumbers, x => x.RerunFailedTests)
+        this.WhenAnyValue(x => x.RunType, x => x.IssueNumbers, x => x.RerunFailedTests)
             .Subscribe(_ => UpdateExpectedCount());
     }
 
@@ -82,7 +82,7 @@ public class RunTestsOptionsViewModel : ViewModelBase
         }
     }
     private PackageFeed _feed = PackageFeed.Stable;
-    private TestTypes _testTypes = TestTypes.All;
+    private RunType _runType = RunType.All;
     private LogVerbosity _verbosity = LogVerbosity.Normal;
     private bool _rerunFailedTests = false;
     private bool _skipNetFx = false;
@@ -96,10 +96,10 @@ public class RunTestsOptionsViewModel : ViewModelBase
         set => SetProperty(ref _feed, value);
     }
 
-    public TestTypes TestTypes
+    public RunType RunType
     {
-        get => _testTypes;
-        set => SetProperty(ref _testTypes, value);
+        get => _runType;
+        set => SetProperty(ref _runType, value);
     }
 
     public LogVerbosity Verbosity
@@ -163,7 +163,7 @@ public class RunTestsOptionsViewModel : ViewModelBase
         {
             Scope = TestScope.All, // Scope is now set in the filter section of IssueListView
             Feed = Feed,
-            TestTypes = TestTypes,
+            RunType = RunType,
             Verbosity = Verbosity,
             RerunFailedTests = RerunFailedTests,
             SkipNetFx = SkipNetFx,
@@ -252,7 +252,7 @@ public class RunTestsOptionsViewModel : ViewModelBase
         }
         else
         {
-            var modeText = TestTypes == TestTypes.All ? "" : $" ({TestTypes} execution only)";
+            var modeText = RunType == RunType.All ? "" : $" ({RunType} execution only)";
             ExpectedCountText = $"Expected: Issues based on filters{modeText}";
         }
     }

@@ -14,8 +14,8 @@ public class IssueListViewModelTests
         GithubIssueState? state = null,
         string? testResult = null,
         IssueState? stateValue = null,
-        string? testTypes = null,
-        string? framework = null,
+        RunType runTypes = RunType.All,
+        Frameworks framework = Frameworks.None,
         string? milestone = null,
         string? type = null)
     {
@@ -57,8 +57,8 @@ public class IssueListViewModelTests
             Metadata = metadata,
             Results = results,
             StateValue = stateValue ?? IssueState.Synced,
-            TestTypes = testTypes ?? "",
-            Framework = framework ?? ""
+            RunType = runTypes,
+            Framework = framework
         };
     }
     [Test]
@@ -68,9 +68,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            CreateIssueListItem(1, testTypes: "Scripts"),
-            CreateIssueListItem(2, testTypes: "DotNet test"),
-            CreateIssueListItem(3, testTypes: "Scripts")
+            CreateIssueListItem(1, runTypes: RunType.Script),
+            CreateIssueListItem(2, runTypes: RunType.DotNet),
+            CreateIssueListItem(3, runTypes: RunType.Script)
         };
         viewModel.LoadIssues(issues);
         
@@ -79,7 +79,7 @@ public class IssueListViewModelTests
         
         // Assert
         Assert.That(viewModel.Issues.Count, Is.EqualTo(2));
-        Assert.That(viewModel.Issues.All(i => i.TestTypes == "Scripts"), Is.True);
+        Assert.That(viewModel.Issues.All(i => i.RunType == RunType.Script), Is.True);
         Assert.That(viewModel.Issues.Select(i => i.Number), Is.EquivalentTo(new[] { 1, 3 }));
     }
 
@@ -90,9 +90,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            CreateIssueListItem(1, testTypes: "Scripts"),
-            CreateIssueListItem(2, testTypes: "DotNet test"),
-            CreateIssueListItem(3, testTypes: "DotNet test")
+            CreateIssueListItem(1, runTypes: RunType.Script),
+            CreateIssueListItem(2, runTypes: RunType.DotNet),
+            CreateIssueListItem(3, runTypes:  RunType.DotNet)
         };
         viewModel.LoadIssues(issues);
         
@@ -101,8 +101,8 @@ public class IssueListViewModelTests
         
         // Assert
         Assert.That(viewModel.Issues.Count, Is.EqualTo(2));
-        Assert.That(viewModel.Issues.All(i => i.TestTypes == "DotNet test"), Is.True);
-        Assert.That(viewModel.Issues.Select(i => i.Number), Is.EquivalentTo(new[] { 2, 3 }));
+        Assert.That(viewModel.Issues.All(i => i.RunType == RunType.DotNet), Is.True);
+        Assert.That(viewModel.Issues.Select(i => i.Number), Is.EquivalentTo([2, 3]));
     }
 
     [Test]
@@ -112,9 +112,9 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            CreateIssueListItem(1, testTypes: "Scripts"),
-            CreateIssueListItem(2, testTypes: "DotNet test"),
-            CreateIssueListItem(3, testTypes: "Scripts")
+            CreateIssueListItem(1, runTypes: RunType.Script),
+            CreateIssueListItem(2, runTypes: RunType.DotNet),
+            CreateIssueListItem(3, runTypes: RunType.Script)
         };
         viewModel.LoadIssues(issues);
         viewModel.SelectedTestTypes = "Scripts only"; // First filter to Scripts only
@@ -130,20 +130,20 @@ public class IssueListViewModelTests
     public void TestTypes_PropertyIsPopulatedCorrectly_ForIssueWithCustomScripts()
     {
         // Arrange
-        var issue = CreateIssueListItem(1, "Test Issue", testTypes: "Scripts");
+        var issue = CreateIssueListItem(1, "Test Issue", runTypes: RunType.Script);
         
         // Assert
-        Assert.That(issue.TestTypes, Is.EqualTo("Scripts"));
+        Assert.That(issue.RunType, Is.EqualTo("Scripts"));
     }
 
     [Test]
     public void TestTypes_PropertyIsPopulatedCorrectly_ForIssueWithoutCustomScripts()
     {
         // Arrange
-        var issue = CreateIssueListItem(1, "Test Issue", testTypes: "DotNet test");
+        var issue = CreateIssueListItem(1, "Test Issue", runTypes: RunType.DotNet);
         
         // Assert
-        Assert.That(issue.TestTypes, Is.EqualTo("DotNet test"));
+        Assert.That(issue.RunType, Is.EqualTo(RunType.DotNet));
     }
 
     [Test]
@@ -500,8 +500,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            CreateIssueListItem(1, "Title 1", testTypes: "Scripts"),
-            CreateIssueListItem(2, "Title 2", testTypes: "DotNet test")
+            CreateIssueListItem(1, "Title 1", runTypes: RunType.Script),
+            CreateIssueListItem(2, "Title 2", runTypes: RunType.DotNet)
         };
         viewModel.LoadIssues(issues);
 
@@ -521,8 +521,8 @@ public class IssueListViewModelTests
         var viewModel = new IssueListViewModel();
         var issues = new List<IssueListItem>
         {
-            CreateIssueListItem(1, "Title 1", framework: ".Net"),
-            CreateIssueListItem(2, "Title 2", framework: ".Net Framework")
+            CreateIssueListItem(1, "Title 1", framework: Frameworks.DotNet),
+            CreateIssueListItem(2, "Title 2", framework: Frameworks.DotNetFramework)
         };
         viewModel.LoadIssues(issues);
 

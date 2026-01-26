@@ -19,9 +19,22 @@ public enum IssueState
     
     /// <summary>Issue is runnable and passed restore/compile.</summary>
     Runnable,
+
+    /// <summary>Issue has no tests to run.</summary>
+    NothingToRun,
     
     /// <summary>Issue is skipped due to a marker file.</summary>
-    Skipped
+    Skipped,
+    
+    /// <summary>Issue has not been synced (missing metadata or initial_state file).</summary>
+    NotSynced
+}
+
+public enum Frameworks
+{
+    None,
+    DotNet,
+    DotNetFramework
 }
 
 

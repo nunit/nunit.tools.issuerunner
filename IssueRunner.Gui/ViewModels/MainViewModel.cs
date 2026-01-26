@@ -337,38 +337,153 @@ public class MainViewModel : ViewModelBase
     public int PassedCount
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(PassedCountWithBaseline));
+            }
+        }
     }
 
     public int FailedCount
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(FailedCountWithBaseline));
+            }
+        }
     }
 
     public int SkippedCount
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(SkippedCountWithBaseline));
+            }
+        }
     }
 
     public int NotRestoredCount
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(NotRestoredCountWithBaseline));
+            }
+        }
     }
 
     public int NotCompilingCount
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(NotCompilingCountWithBaseline));
+            }
+        }
     }
 
     public int NotTestedCount
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(NotTestedCountWithBaseline));
+            }
+        }
     }
+
+    public int BaselinePassedCount
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(PassedCountWithBaseline));
+            }
+        }
+    }
+
+    public int BaselineFailedCount
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(FailedCountWithBaseline));
+            }
+        }
+    }
+
+    public int BaselineSkippedCount
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(SkippedCountWithBaseline));
+            }
+        }
+    }
+
+    public int BaselineNotRestoredCount
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(NotRestoredCountWithBaseline));
+            }
+        }
+    }
+
+    public int BaselineNotCompilingCount
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(NotCompilingCountWithBaseline));
+            }
+        }
+    }
+
+    public int BaselineNotTestedCount
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(NotTestedCountWithBaseline));
+            }
+        }
+    }
+
+    public string PassedCountWithBaseline => $"{PassedCount} ({BaselinePassedCount})";
+    public string FailedCountWithBaseline => $"{FailedCount} ({BaselineFailedCount})";
+    public string SkippedCountWithBaseline => $"{SkippedCount} ({BaselineSkippedCount})";
+    public string NotRestoredCountWithBaseline => $"{NotRestoredCount} ({BaselineNotRestoredCount})";
+    public string NotCompilingCountWithBaseline => $"{NotCompilingCount} ({BaselineNotCompilingCount})";
+    public string NotTestedCountWithBaseline => $"{NotTestedCount} ({BaselineNotTestedCount})";
 
     public int IssuesNeedingSync
     {
@@ -485,6 +600,13 @@ public class MainViewModel : ViewModelBase
             NotRestoredCount = status.NotRestoredCount;
             NotCompilingCount = status.NotCompilingCount;
             NotTestedCount = status.NotTestedCount;
+
+            BaselinePassedCount = status.BaselinePassedCount;
+            BaselineFailedCount = status.BaselineFailedCount;
+            BaselineSkippedCount = status.BaselineSkippedCount;
+            BaselineNotRestoredCount = status.BaselineNotRestoredCount;
+            BaselineNotCompilingCount = status.BaselineNotCompilingCount;
+            BaselineNotTestedCount = status.BaselineNotTestedCount;
 
             IssuesNeedingSync = status.IssuesNeedingSync;
             LastSyncFromGitHub = status.LastSyncFromGitHub;

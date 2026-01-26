@@ -18,8 +18,8 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
         GithubIssueState? state = null,
         StepResultStatus? testResult = null,
         IssueState? stateValue = null,
-        TestTypes? testTypes = null,
-        string? framework = null,
+        RunType runTypes = RunType.All,
+        Frameworks framework = Frameworks.None,
         string? notTestedReason = null)
     {
         var metadata = new IssueMetadata
@@ -34,12 +34,6 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
         List<IssueResult>? results = null;
         if (testResult != null)
         {
-            var status = testResult.ToLowerInvariant() switch
-            {
-                "success" => StepResultStatus.Success,
-                "fail" or "failed" => StepResultStatus.Failed,
-                _ => StepResultStatus.NotRun
-            };
             results = new List<IssueResult>
             {
                 new IssueResult
@@ -48,7 +42,7 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
                     ProjectPath = "test.csproj",
                     TargetFrameworks = [],
                     Packages = [],
-                    TestResult = status,
+                    TestResult = testResult.Value,
                     LastRun = DateTime.UtcNow.ToString("O")
                 }
             };
@@ -59,8 +53,8 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
             Metadata = metadata,
             Results = results,
             StateValue = stateValue ?? IssueState.Synced,
-            TestTypes = testTypes ?? "",
-            Framework = framework ?? "",
+            RunType = runTypes ,
+            Framework = framework ,
             NotTestedReason = notTestedReason
         };
     }
@@ -84,7 +78,7 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
 
         // Add a test issue and activate a filter
         issueListViewModel.LoadIssues([
-            CreateIssueListItem(1, testTypes: "Scripts", testResult: "success")
+            CreateIssueListItem(1, runTypes: RunType.Script, testResult: StepResultStatus.Success)
         ]);
         issueListViewModel.SelectedTestTypes = "Scripts only";
 
@@ -138,11 +132,10 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
         Assert.That(issueListView, Is.Not.Null, "CurrentView should be IssueListView");
         var vm = (IssueListViewModel)issueListView!.DataContext!;
 
-        vm.LoadIssues(new[]
-        {
-            CreateIssueListItem(1, testTypes: "Scripts"),
-            CreateIssueListItem(2, testTypes: "DotNet test")
-        });
+        vm.LoadIssues([
+            CreateIssueListItem(1, runTypes: RunType.Script),
+            CreateIssueListItem(2, runTypes: RunType.DotNet)
+        ]);
 
         // Initial: All
         Assert.That(vm.Issues.Count, Is.EqualTo(2));
@@ -151,13 +144,13 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
         vm.SelectedTestTypes = "Scripts only";
         await Task.Delay(50);
         Assert.That(vm.Issues.Count, Is.EqualTo(1));
-        Assert.That(vm.Issues.First().TestTypes, Is.EqualTo("Scripts"));
+        Assert.That(vm.Issues.First().RunType, Is.EqualTo(RunType.Script));
 
         // Filter to dotnet test only (maps to \"DotNet test\" in the column)
         vm.SelectedTestTypes = "dotnet test only";
         await Task.Delay(50);
         Assert.That(vm.Issues.Count, Is.EqualTo(1));
-        Assert.That(vm.Issues.First().TestTypes, Is.EqualTo("DotNet test"));
+        Assert.That(vm.Issues.First().RunType, Is.EqualTo(RunType.DotNet));
     }
 
     [AvaloniaTest]
@@ -175,18 +168,17 @@ public class IssueListViewHeadlessTests : HeadlessTestBase
         Assert.That(issueListView, Is.Not.Null, "CurrentView should be IssueListView");
         var vm = (IssueListViewModel)issueListView!.DataContext!;
 
-        vm.LoadIssues(new[]
-        {
-            CreateIssueListItem(1, testTypes: "Scripts"),
-            CreateIssueListItem(2, testTypes: "DotNet test")
-        });
+        vm.LoadIssues([
+            CreateIssueListItem(1, runTypes: RunType.Script),
+            CreateIssueListItem(2, runTypes: RunType.DotNet)
+        ]);
 
         window.Show();
         await Task.Delay(100);
 
         // Verify that the view model values that feed the column are correct
-        Assert.That(vm.Issues.Any(i => i.TestTypes == "Scripts"), Is.True);
-        Assert.That(vm.Issues.Any(i => i.TestTypes == "DotNet test"), Is.True);
+        Assert.That(vm.Issues.Any(i => i.RunType == RunType.Script), Is.True);
+        Assert.That(vm.Issues.Any(i => i.RunType == RunType.DotNet), Is.True);
     }
 
     [AvaloniaTest]

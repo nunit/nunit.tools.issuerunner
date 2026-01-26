@@ -257,21 +257,9 @@
                                       Text="{Binding Title}"
                                       TextWrapping="Wrap"
                                       Foreground="{Binding ChangeType, Converter={x:Static converters:ChangeTypeToColorConverter.Instance}, FallbackValue=#333}"/>
-                            <StackPanel Grid.Column="2" Spacing="2">
-                                <TextBlock Text="{Binding DetailedState}"
-                                          Foreground="#666"/>
-                                <TextBlock Text="{Binding NotTestedReason}"
-                                          FontSize="10"
-                                          Foreground="#999">
-                                    <TextBlock.IsVisible>
-                                        <Binding Path="NotTestedReason">
-                                            <Binding.Converter>
-                                                <x:Static Member="StringConverters.IsNotNullOrEmpty"/>
-                                            </Binding.Converter>
-                                        </Binding>
-                                    </TextBlock.IsVisible>
-                                </TextBlock>
-                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                      Text="{Binding State}"
+                                      Foreground="#666"/>
                             <TextBlock Grid.Column="3"
                                       Text="{Binding Milestone, TargetNullValue=''}"
                                       Foreground="#666"
@@ -289,7 +277,7 @@
                                 </TextBlock>
                             </StackPanel>
                             <TextBlock Grid.Column="6"
-                                      Text="{Binding TestTypes}"
+                                      Text="{Binding RunType}"
                                       Foreground="#666"
                                       FontSize="11"/>
                             <TextBlock Grid.Column="7"

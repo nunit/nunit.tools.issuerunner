@@ -45,6 +45,12 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
         var notRestoredCount = 0;
         var notCompilingCount = 0;
         var notTestedCount = 0;
+        var baselinePassedCount = 0;
+        var baselineFailedCount = 0;
+        var baselineSkippedCount = 0;
+        var baselineNotRestoredCount = 0;
+        var baselineNotCompilingCount = 0;
+        var baselineNotTestedCount = 0;
         var issuesNeedingSync = 0;
         var lastSyncFromGitHub = "Never";
         var lastTestRun = "Never";
@@ -86,6 +92,40 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
             notRestoredCount = aggregatedCurrent.Count(a => a.Status == AggregatedIssueStatus.NotRestored);
             notCompilingCount = aggregatedCurrent.Count(a => a.Status == AggregatedIssueStatus.NotCompiling);
             notTestedCount = aggregatedCurrent.Count(a => a.Status == AggregatedIssueStatus.NotTested);
+
+            // Load baseline results for baseline counts
+            var baselineResultsPath = Path.Combine(dataDir, "results-baseline.json");
+            var baselineResults = new List<IssueResult>();
+            if (File.Exists(baselineResultsPath))
+            {
+                try
+                {
+                    var baselineResultsJson = await File.ReadAllTextAsync(baselineResultsPath);
+                    var options = new JsonSerializerOptions
+                    {
+                        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                    };
+                    baselineResults = JsonSerializer.Deserialize<List<IssueResult>>(baselineResultsJson, options) ?? [];
+                }
+                catch (Exception ex)
+                {
+                    log($"Warning: Failed to load results-baseline.json for baseline counts: {ex.Message}");
+                }
+            }
+
+            var aggregatedBaseline = _aggregator.AggregatePerIssue(folders, baselineResults, _markerService, log);
+
+            // For baseline counts, only count issues that actually have baseline results
+            // (exclude issues that default to NotTested because they don't exist in baseline)
+            var baselineIssueNumbers = baselineResults.Select(r => r.Number).Distinct().ToHashSet();
+            var baselineWithResults = aggregatedBaseline.Where(a => baselineIssueNumbers.Contains(a.Number)).ToList();
+
+            baselinePassedCount = baselineWithResults.Count(a => a.Status == AggregatedIssueStatus.Passed);
+            baselineFailedCount = baselineWithResults.Count(a => a.Status == AggregatedIssueStatus.Failed);
+            baselineSkippedCount = baselineWithResults.Count(a => a.Status == AggregatedIssueStatus.Skipped);
+            baselineNotRestoredCount = baselineWithResults.Count(a => a.Status == AggregatedIssueStatus.NotRestored);
+            baselineNotCompilingCount = baselineWithResults.Count(a => a.Status == AggregatedIssueStatus.NotCompiling);
+            baselineNotTestedCount = baselineWithResults.Count(a => a.Status == AggregatedIssueStatus.NotTested);
 
             // Load metadata counts
             var metadataPath = Path.Combine(dataDir, "issues_metadata.json");
@@ -241,6 +281,12 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
             NotRestoredCount = notRestoredCount,
             NotCompilingCount = notCompilingCount,
             NotTestedCount = notTestedCount,
+            BaselinePassedCount = baselinePassedCount,
+            BaselineFailedCount = baselineFailedCount,
+            BaselineSkippedCount = baselineSkippedCount,
+            BaselineNotRestoredCount = baselineNotRestoredCount,
+            BaselineNotCompilingCount = baselineNotCompilingCount,
+            BaselineNotTestedCount = baselineNotTestedCount,
             IssuesNeedingSync = issuesNeedingSync,
             LastSyncFromGitHub = lastSyncFromGitHub,
             LastTestRun = lastTestRun,

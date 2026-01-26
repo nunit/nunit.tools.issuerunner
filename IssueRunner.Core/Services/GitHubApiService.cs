@@ -59,7 +59,10 @@ public sealed class GitHubApiService : IGitHubApiService
                     errorContent);
                 return null;
             }
-
+#if DEBUG
+            var dbgContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            string s = dbgContent.Substring(2206 - 10);
+#endif
             var githubIssue = await response.Content
                 .ReadFromJsonAsync<GitHubIssueResponse>(cancellationToken);
             
@@ -146,6 +149,7 @@ public sealed class GitHubApiService : IGitHubApiService
         public required string Title { get; init; }
 
         [JsonPropertyName("state")]
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public required GithubIssueState State { get; init; }
 
         [JsonPropertyName("milestone")]

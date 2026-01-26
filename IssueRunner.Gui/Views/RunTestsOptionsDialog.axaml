@@ -33,11 +33,11 @@
                 <!-- Test Types -->
                 <StackPanel Spacing="5">
                     <TextBlock Text="Test Types" FontWeight="SemiBold" FontSize="14"/>
-                    <ComboBox SelectedItem="{Binding TestTypes}" SelectedIndex="0">
+                    <ComboBox SelectedItem="{Binding RunType}" SelectedIndex="0">
                         <ComboBox.Items>
-                            <x:Static Member="models:TestTypes.All"/>
-                            <x:Static Member="models:TestTypes.Direct"/>
-                            <x:Static Member="models:TestTypes.Custom"/>
+                            <x:Static Member="models:RunType.All"/>
+                            <x:Static Member="models:RunType.DotNet"/>
+                            <x:Static Member="models:RunType.Script"/>
                         </ComboBox.Items>
                     </ComboBox>
                 </StackPanel>

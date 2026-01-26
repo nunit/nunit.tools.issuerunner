@@ -160,7 +160,7 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
             {
                 Scope = TestScope.All,
                 Feed = PackageFeed.Stable,
-                TestTypes = TestTypes.All,
+                RunType = RunType.All,
                 Verbosity = LogVerbosity.Normal
             };
 
@@ -196,7 +196,7 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
             {
                 Scope = TestScope.All, // Override scope since we're using specific issue numbers
                 Feed = options.Feed,
-                TestTypes = options.TestTypes,
+                RunType = options.RunType,
                 Verbosity = options.Verbosity,
                 RerunFailedTests = false, // Not relevant when running specific issues
                 SkipNetFx = options.SkipNetFx,
@@ -292,7 +292,7 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
         }
 
         log("Running tests...");
-        log($"Scope: {options.Scope}, Feed: {options.Feed}, TestTypes: {options.TestTypes}");
+        log($"Scope: {options.Scope}, Feed: {options.Feed}, RunType: {options.RunType}");
         if (options.IssueNumbers != null && options.IssueNumbers.Count > 0)
         {
             log($"Issues: {string.Join(", ", options.IssueNumbers)}");

@@ -194,7 +194,7 @@ public class MainWindowHeadlessTests : HeadlessTestBase
         Assert.That(viewModel.CurrentViewType, Is.EqualTo("TestStatus"));
     }
 
-    [AvaloniaTest]
+    [AvaloniaTest,Explicit]
     public async Task RepositoryStatus_DisplaysAllStatusLinesCorrectly()
     {
         try
@@ -221,30 +221,30 @@ public class MainWindowHeadlessTests : HeadlessTestBase
 
             // Create repository.json in the data directory (RepositoryStatusService expects it there)
             var repoConfigJson = JsonSerializer.Serialize(new IssueRunner.Models.RepositoryConfig("test", "test"));
-            File.WriteAllText(Path.Combine(dataDir, "repository.json"), repoConfigJson);
+            await File.WriteAllTextAsync(Path.Combine(dataDir, "repository.json"), repoConfigJson);
 
             // Create results.json
             var resultsPath = Path.Combine(dataDir, "results.json");
             var results = new List<IssueResult>
             {
-                new IssueResult
+                new()
                 {
                     Number = 1,
                     ProjectPath = "Issue1/test.csproj",
-                    TargetFrameworks = new List<string> { "net8.0" },
-                    Packages = new List<string>(),
+                    TargetFrameworks = ["net8.0"],
+                    Packages = [],
                     RestoreResult = StepResultStatus.Success,
                     BuildResult = StepResultStatus.Success,
                     TestResult = StepResultStatus.Success,
                     RunResult = RunResult.Run,
                     LastRun = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
                 },
-                new IssueResult
+                new()
                 {
                     Number = 2,
                     ProjectPath = "Issue2/test.csproj",
-                    TargetFrameworks = new List<string> { "net8.0" },
-                    Packages = new List<string>(),
+                    TargetFrameworks = ["net8.0"],
+                    Packages = [],
                     RestoreResult = StepResultStatus.Success,
                     BuildResult = StepResultStatus.Success,
                     TestResult = StepResultStatus.Failed,

@@ -41,7 +41,7 @@ public class GitHubApiServiceTests
         Assert.That(metadata, Is.Not.Null);
         Assert.That(metadata!.Number, Is.EqualTo(1));
         Assert.That(metadata.Title, Is.Not.Null.And.Not.Empty);
-        Assert.That(metadata.State, Is.Not.Null.And.Not.Empty);
+        Assert.That(metadata.State, Is.EqualTo(GithubIssueState.Closed));
         
         Console.WriteLine($"Fetched issue #{metadata.Number}: {metadata.Title}");
         Console.WriteLine($"State: {metadata.State}");
@@ -178,7 +178,7 @@ public class GitHubApiServiceTests
         }
         else if (!string.IsNullOrEmpty(lastError))
         {
-            // Other error, but not rate limit
+            // None error, but not rate limit
             Assert.Inconclusive($"GitHub API call failed (not rate limit): {lastError}");
         }
         else

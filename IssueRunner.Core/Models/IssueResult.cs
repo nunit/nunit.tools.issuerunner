@@ -148,6 +148,20 @@ public sealed class IssueResult
     /// </summary>
     [JsonPropertyName("run_result")]
     public RunResult? RunResult { get; init; }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is not IssueResult other)
+            return false;
+        return Number == other.Number &&
+               UpdateResult == other.UpdateResult &&
+               RestoreResult == other.RestoreResult &&
+               BuildResult == other.BuildResult &&
+               TestResult == other.TestResult &&
+               TestConclusion == other.TestConclusion &&
+               ((RunResult == null && other.RunResult == null) ||
+                (RunResult != null && RunResult.Equals(other.RunResult)));
+    }
 }
 
 

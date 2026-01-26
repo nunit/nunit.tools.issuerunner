@@ -163,10 +163,10 @@ internal static class Program
         var nunitOnlyOption = new Option<bool>(
             "--nunit-only",
             "Update only NUnit packages");
-        var testTypesOption = new Option<TestTypes>(
+        var testTypesOption = new Option<RunType>(
             "--test-types",
-            () => TestTypes.All,
-            "Filter by test types: All (default), Direct (dotnet test only), Custom (custom scripts only)");
+            () => RunType.All,
+            "Filter by test types: All (default), DotNet (dotnet test only), Script (custom scripts only)");
         var verbosityOption = new Option<LogVerbosity>(
             "--verbosity",
             () => LogVerbosity.Normal,
@@ -213,7 +213,7 @@ internal static class Program
                 SkipNetFx = skipNetFx,
                 OnlyNetFx = onlyNetFx,
                 NUnitOnly = nunitOnly,
-                TestTypes = testTypes,
+                RunType = testTypes,
                 Verbosity = verbosity,
                 Feed = feed,
                 RerunFailedTests = rerunFailed

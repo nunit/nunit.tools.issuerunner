@@ -20,6 +20,12 @@ public sealed class RepositoryLoadResult
     public required int NotRestoredCount { get; init; }
     public required int NotCompilingCount { get; init; }
     public required int NotTestedCount { get; init; }
+    public required int BaselinePassedCount { get; init; }
+    public required int BaselineFailedCount { get; init; }
+    public required int BaselineSkippedCount { get; init; }
+    public required int BaselineNotRestoredCount { get; init; }
+    public required int BaselineNotCompilingCount { get; init; }
+    public required int BaselineNotTestedCount { get; init; }
     public required int IssuesNeedingSync { get; init; }
     public required string LastSyncFromGitHub { get; init; }
     public required string LastTestRun { get; init; }

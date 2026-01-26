@@ -23,7 +23,7 @@ public sealed class TestResultDiff
     /// <summary>
     /// Gets or sets the current status (e.g., "success", "fail", "skipped").
     /// </summary>
-    public required string CurrentStatus { get; init; }
+    public required StepResultStatus CurrentStatus { get; init; }
 
     /// <summary>
     /// Gets or sets the type of change.
@@ -45,13 +45,19 @@ public enum ChangeType
     /// <summary>Regression: Was success, now fail (Red).</summary>
     Regression,
 
-    /// <summary>CompileToFail: Was not compile/restore fail, now test fail (Orange).</summary>
-    CompileToFail,
+    /// <summary>BuildToFail: Was not compile/restore fail, now test fail (Orange).</summary>
+    BuildToFail,
 
     /// <summary>Skipped: Was fail, now skipped (exclude from list).</summary>
     Skipped,
 
-    /// <summary>Other: Any other status change (Grey).</summary>
+    /// <summary> New: Was not present in baseline. </summary>
+    New,
+
+    /// <summary> Deleted: Was present in baseline but not in current. </summary>
+    Deleted,
+
+    /// <summary>None: Any other status change (Grey).</summary>
     Other
 }
 

@@ -143,7 +143,7 @@ public class IssueListViewModel : ViewModelBase
     } = "All";
 
     public IEnumerable<TestScope> AvailableScopes => Enum.GetValues<TestScope>();
-    public IEnumerable<string> AvailableStates => new[] { "All", "New", "Synced", "Failed restore", "Failed compile", "Runnable", "Skipped" };
+    public IEnumerable<string> AvailableStates => new[] { "All", "New", "Synced", "Failed restore", "Failed compile", "Runnable", "Skipped", "Not synced" };
     public IEnumerable<string> AvailableTestResults => new[] { "All", "Success", "Fail", "Not Tested" };
     public IEnumerable<string> AvailableTestTypes => new[] { "All", "Scripts only", "dotnet test only" };
     public IEnumerable<string> AvailableFrameworks => new[] { "All", ".Net", ".Net Framework" };
@@ -425,6 +425,7 @@ public class IssueListViewModel : ViewModelBase
                 "Failed compile" => filtered.Where(i => i.StateValue == IssueState.FailedCompile),
                 "Runnable" => filtered.Where(i => i.StateValue == IssueState.Runnable),
                 "Skipped" => filtered.Where(i => i.StateValue == IssueState.Skipped),
+                "Not synced" => filtered.Where(i => i.StateValue == IssueState.NotSynced),
                 _ => filtered
             };
         }
@@ -441,15 +442,15 @@ public class IssueListViewModel : ViewModelBase
             };
         }
         
-        // Apply TestTypes filter
+        // Apply RunType filter
         if (SelectedTestTypes != "All")
         {
             // Display values in the column are "Scripts" or "DotNet test",
             // while filter options are "Scripts only" / "dotnet test only".
             filtered = SelectedTestTypes switch
             {
-                "Scripts only" => filtered.Where(i => i.TestTypes == "Scripts"),
-                "dotnet test only" => filtered.Where(i => i.TestTypes == "DotNet test"),
+                "Scripts only" => filtered.Where(i => i.RunType == RunType.Script),
+                "dotnet test only" => filtered.Where(i => i.RunType ==RunType.DotNet),
                 _ => filtered
             };
         }
@@ -459,8 +460,8 @@ public class IssueListViewModel : ViewModelBase
         {
             filtered = SelectedFramework switch
             {
-                ".Net" => filtered.Where(i => i.Framework == ".Net"),
-                ".Net Framework" => filtered.Where(i => i.Framework == ".Net Framework"),
+                ".Net" => filtered.Where(i => i.Framework == Frameworks.DotNet),
+                ".Net Framework" => filtered.Where(i => i.Framework == Frameworks.DotNetFramework),
                 _ => filtered
             };
         }
