@@ -398,39 +398,40 @@ public sealed class IssueListLoader(
                     }
                 }
 
-                // Check if this issue has a change
+                // Check if this issue has a change based on detailed diffs from TestResultDiffService
+                // Any underlying diff (including restore/build/skip transitions) should surface in Diff view.
                 var changeType = ChangeType.None;
                 string? statusDisplay = null; // Null by default, will use TestResult via TargetNullValue, or set if there's a change
                 string? changeTooltip = null;
 
-                // Calculate ChangeType when baseline exists (for coloring in Current view and filtering in Diff view)
-                var baselineExists = baselineResultsByIssue.TryGetValue(issueNum, out var baselineResult);
-                var currentExists = resultsByIssueForComparison.TryGetValue(issueNum, out var currentResultTuple);
-
-                // Only set ChangeType if issue exists in BOTH baseline and current with different status
-                // New issues (only in current) or removed issues (only in baseline) should not show in Diff view
-                if (baselineExists && currentExists)
+                if (issueDiffs is { Count: > 0 })
                 {
-                    // Both exist - compare them
-                    // Parse enum strings from DetermineWorstResult
-                    var baselineStatusEnum = Enum.TryParse<StepResultStatus>(baselineResult.Result, true, out var bs) ? bs : StepResultStatus.NotRun;
-                    var currentStatusEnum = Enum.TryParse<StepResultStatus>(currentResultTuple.Result, true, out var cs) ? cs : StepResultStatus.NotRun;
-
-                    if (baselineStatusEnum != currentStatusEnum)
+                    // Choose a representative ChangeType for the issue.
+                    // Prefer more severe/interesting changes (Regression > BuildToFail > Fixed > Other > New/Deleted/None).
+                    static int GetSeverity(ChangeType ct) => ct switch
                     {
-                        changeType = DetermineChangeType(baselineStatusEnum, currentStatusEnum);
-                        changeTooltip = FormatChangeTooltip(baselineStatusEnum.ToString(), currentStatusEnum.ToString());
+                        ChangeType.Regression => 5,
+                        ChangeType.BuildToFail => 4,
+                        ChangeType.Fixed => 3,
+                        ChangeType.Other => 2,
+                        ChangeType.New or ChangeType.Deleted => 1,
+                        _ => 0
+                    };
 
-                        statusDisplay = changeType switch
-                        {
-                            ChangeType.Regression => "=> fail",
-                            ChangeType.Fixed or ChangeType.BuildToFail or ChangeType.Other => currentStatusEnum.ToString(),
-                            _ => statusDisplay
-                        };
-                    }
-                    // If baselineStatus == currentStatus, changeType remains None (no change)
+                    var representativeDiff = issueDiffs
+                        .OrderByDescending(d => GetSeverity(d.ChangeType))
+                        .First();
+
+                    changeType = representativeDiff.ChangeType;
+
+                    // StatusDisplay: reuse the per-issue status display computed from diffs when available
+                    issueStatusDisplay.TryGetValue(issueNum, out statusDisplay);
+
+                    // Tooltip: show baseline -> current status for the representative diff
+                    changeTooltip = FormatChangeTooltip(
+                        representativeDiff.BaselineStatus.ToString(),
+                        representativeDiff.CurrentStatus.ToString());
                 }
-                // If issue only exists in one (new or removed), changeType remains None (don't show in Diff view)
 
                 issues.Add(new IssueListItem
                 {

@@ -22,8 +22,8 @@ public enum IssueViewMode
 /// </summary>
 public class IssueListViewModel : ViewModelBase
 {
-    private readonly ObservableCollection<IssueListItem> _allIssues = new();
-    private readonly ObservableCollection<IssueListItem> _filteredIssues = new();
+    private readonly ObservableCollection<IssueListItem> _allIssues = [];
+    private readonly ObservableCollection<IssueListItem> _filteredIssues = [];
     private Func<List<int>, Task>? _runTestsCallback;
     private Func<Task>? _showOptionsCallback;
     private Func<List<int>, Task>? _resetPackagesCallback;
@@ -143,10 +143,11 @@ public class IssueListViewModel : ViewModelBase
     } = "All";
 
     public IEnumerable<TestScope> AvailableScopes => Enum.GetValues<TestScope>();
-    public IEnumerable<string> AvailableStates => new[] { "All", "New", "Synced", "Failed restore", "Failed compile", "Runnable", "Skipped", "Not synced" };
-    public IEnumerable<string> AvailableTestResults => new[] { "All", "Success", "Fail", "Not Tested" };
-    public IEnumerable<string> AvailableTestTypes => new[] { "All", "Scripts only", "dotnet test only" };
-    public IEnumerable<string> AvailableFrameworks => new[] { "All", ".Net", ".Net Framework" };
+    public IEnumerable<string> AvailableStates => ["All", "New", "Synced", "Failed restore", "Failed compile", "Runnable", "Skipped", "Not synced"
+    ];
+    public IEnumerable<string> AvailableTestResults => ["All", "Success", "Fail", "Not Tested"];
+    public IEnumerable<string> AvailableTestTypes => ["All", "Scripts only", "dotnet test only"];
+    public IEnumerable<string> AvailableFrameworks => ["All", ".Net", ".Net Framework"];
 
     public IEnumerable<string> AvailableMilestones
     {
@@ -263,7 +264,7 @@ public class IssueListViewModel : ViewModelBase
             catch (Exception ex)
             {
                 // Log error but don't crash - could use a logger if available
-                System.Diagnostics.Debug.WriteLine($"Failed to open URL {issue.GitHubUrl}: {ex.Message}");
+                Debug.WriteLine($"Failed to open URL {issue.GitHubUrl}: {ex.Message}");
             }
         }
         else if (!string.IsNullOrEmpty(_repositoryBaseUrl))
@@ -280,7 +281,7 @@ public class IssueListViewModel : ViewModelBase
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to open URL {url}: {ex.Message}");
+                Debug.WriteLine($"Failed to open URL {url}: {ex.Message}");
             }
         }
     }
@@ -299,7 +300,7 @@ public class IssueListViewModel : ViewModelBase
         {
             // Parse issue numbers from the text box
             var numbers = new List<int>();
-            var parts = IssueNumbers.Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            var parts = IssueNumbers.Split([',', ' ', ';'], StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 if (int.TryParse(part.Trim(), out var num))
@@ -353,7 +354,7 @@ public class IssueListViewModel : ViewModelBase
         {
             // Parse issue numbers from the text box
             var numbers = new List<int>();
-            var parts = IssueNumbers.Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            var parts = IssueNumbers.Split([',', ' ', ';'], StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 if (int.TryParse(part.Trim(), out var num))

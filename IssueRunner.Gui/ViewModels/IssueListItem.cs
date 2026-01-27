@@ -143,6 +143,96 @@ public class IssueListItem
     public string? StatusDisplay { get; set; } = null; // Display text for status (e.g., "=> fail" for regressions). Null means use TestResult.
     public string? ChangeTooltip { get; set; } = null; // Tooltip showing exact change (e.g., "Test fail -> Test Succeeds")
 
+    /// <summary>
+    /// Whether this issue has per-project diff details (used in Diff view to show a details indicator).
+    /// </summary>
+    public bool HasDiffDetails => Diffs != null && Diffs.Count > 0;
+
+    /// <summary>
+    /// Short multi-line summary of baseline→current changes per project (for tooltip on details icon).
+    /// </summary>
+    public string DiffSummaryTooltip
+    {
+        get
+        {
+            if (Diffs == null || Diffs.Count == 0)
+                return "";
+            return string.Join("\n", Diffs.Select(d =>
+                $"{d.ProjectPath}: {d.BaselineStatus} → {d.CurrentStatus} ({d.ChangeType})"));
+        }
+    }
+
+    /// <summary>
+    /// Verbose formatted text describing all diffs for this issue (for the details popup in Diff view).
+    /// Includes all statuses (Update, Restore, Build, Test, RunResult) and all outputs/errors baseline → current.
+    /// </summary>
+    public string DiffDetailsText
+    {
+        get
+        {
+            if (Diffs == null || Diffs.Count == 0)
+                return "";
+            var header = $"Issue {Number}: {Title}\n\n";
+            var lines = Diffs.Select(FormatDiffDetails);
+            return header + string.Join("\n\n", lines);
+        }
+    }
+
+    private static string FormatDiffDetails(TestResultDiff d)
+    {
+        var b = d.BaselineResult;
+        var c = d.CurrentResult;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"  • {d.ProjectPath}");
+        sb.AppendLine($"    Change: {d.ChangeType}  (Test: {d.BaselineStatus} → {d.CurrentStatus})");
+
+        if (b != null || c != null)
+        {
+            sb.AppendLine("    Statuses (Baseline → Current):");
+            sb.AppendLine($"      Update:   {StatusOrNotRun(b?.UpdateResult)} → {StatusOrNotRun(c?.UpdateResult)}");
+            sb.AppendLine($"      Restore:  {StatusOrNotRun(b?.RestoreResult)} → {StatusOrNotRun(c?.RestoreResult)}");
+            sb.AppendLine($"      Build:    {StatusOrNotRun(b?.BuildResult)} → {StatusOrNotRun(c?.BuildResult)}");
+            sb.AppendLine($"      Test:     {StatusOrNotRun(b?.TestResult)} → {StatusOrNotRun(c?.TestResult)}");
+            if (b?.RunResult != null || c?.RunResult != null)
+                sb.AppendLine($"      RunResult: {b?.RunResult?.ToString() ?? "(none)"} → {c?.RunResult?.ToString() ?? "(none)"}");
+            if (!string.IsNullOrWhiteSpace(b?.Reason) || !string.IsNullOrWhiteSpace(c?.Reason))
+                sb.AppendLine($"      Reason:   {(string.IsNullOrWhiteSpace(b?.Reason) ? "(none)" : b!.Reason)} → {(string.IsNullOrWhiteSpace(c?.Reason) ? "(none)" : c!.Reason)}");
+
+            sb.AppendLine("    Outputs / errors:");
+            AppendOutputs(sb, "Baseline", b);
+            AppendOutputs(sb, "Current", c);
+        }
+
+        return sb.ToString();
+    }
+
+    private static string StatusOrNotRun(StepResultStatus? s) => s?.ToString() ?? "NotRun";
+
+    private static void AppendOutputs(System.Text.StringBuilder sb, string label, IssueResult? r)
+    {
+        if (r == null)
+            return;
+        sb.AppendLine($"      [{label}]");
+        AppendIfNonEmpty(sb, "  UpdateOutput", r.UpdateOutput);
+        AppendIfNonEmpty(sb, "  UpdateError", r.UpdateError);
+        AppendIfNonEmpty(sb, "  RestoreOutput", r.RestoreOutput);
+        AppendIfNonEmpty(sb, "  RestoreError", r.RestoreError);
+        AppendIfNonEmpty(sb, "  BuildOutput", r.BuildOutput);
+        AppendIfNonEmpty(sb, "  BuildError", r.BuildError);
+        AppendIfNonEmpty(sb, "  TestOutput", r.TestOutput);
+        AppendIfNonEmpty(sb, "  TestError", r.TestError);
+        AppendIfNonEmpty(sb, "  TestConclusion", r.TestConclusion);
+    }
+
+    private static void AppendIfNonEmpty(System.Text.StringBuilder sb, string name, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+        sb.AppendLine($"        {name}:");
+        foreach (var line in value.Split(["\r\n", "\n", "\r"], StringSplitOptions.None))
+            sb.AppendLine($"          {line}");
+    }
+
     // Helper methods moved from IssueListLoader
     // Made internal so IssueListLoader can use it for baseline comparison
     internal static (string Result, string LastRun) DetermineWorstResult(List<IssueResult> issueResults)

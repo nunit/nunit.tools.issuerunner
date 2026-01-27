@@ -38,6 +38,15 @@ public partial class IssueListView : UserControl
             }
         }
     }
+
+    private void OnDiffDetailsClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: ViewModels.IssueListItem item } && VisualRoot is Window owner)
+        {
+            var dialog = new IssueDiffDetailsDialog(item);
+            dialog.Show(owner);
+        }
+    }
 }
 
 

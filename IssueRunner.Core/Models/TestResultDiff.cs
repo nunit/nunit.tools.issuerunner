@@ -29,6 +29,16 @@ public sealed class TestResultDiff
     /// Gets or sets the type of change.
     /// </summary>
     public required ChangeType ChangeType { get; init; }
+
+    /// <summary>
+    /// Gets or sets the full baseline result when available (used for diff details: all statuses and outputs).
+    /// </summary>
+    public IssueResult? BaselineResult { get; init; }
+
+    /// <summary>
+    /// Gets or sets the full current result when available (used for diff details: all statuses and outputs).
+    /// </summary>
+    public IssueResult? CurrentResult { get; init; }
 }
 
 /// <summary>

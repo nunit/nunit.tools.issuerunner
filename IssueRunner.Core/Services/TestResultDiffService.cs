@@ -97,10 +97,12 @@ public sealed class TestResultDiffService : ITestResultDiffService
                 diffs.Add(new TestResultDiff
                 {
                     IssueNumber = issueNumber,
-                    ProjectPath = projectPath,
+                    ProjectPath = baselineResult?.ProjectPath ?? currentResult?.ProjectPath ?? projectPath,
                     BaselineStatus = baselineResult?.TestResult ?? StepResultStatus.NotRun,
                     CurrentStatus = currentResult?.TestResult ?? StepResultStatus.NotRun,
-                    ChangeType = changeType
+                    ChangeType = changeType,
+                    BaselineResult = baselineResult,
+                    CurrentResult = currentResult
                 });
             }
 

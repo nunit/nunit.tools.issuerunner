@@ -207,7 +207,7 @@
                BorderBrush="#D0D0D0"
                BorderThickness="0,0,0,1"
                Padding="12,8">
-            <Grid ColumnDefinitions="80,*,100,120,120,120,120,150">
+            <Grid ColumnDefinitions="80,*,100,120,120,120,120,150,32">
                 <TextBlock Grid.Column="0" Text="Issue" FontWeight="SemiBold" Foreground="#333"/>
                 <TextBlock Grid.Column="1" Text="Title" FontWeight="SemiBold" Foreground="#333"/>
                 <TextBlock Grid.Column="2" Text="State" FontWeight="SemiBold" Foreground="#333"/>
@@ -216,18 +216,20 @@
                 <TextBlock Grid.Column="5" Text="Test Result" FontWeight="SemiBold" Foreground="#333"/>
                 <TextBlock Grid.Column="6" Text="Test Types" FontWeight="SemiBold" Foreground="#333"/>
                 <TextBlock Grid.Column="7" Text="Last Run" FontWeight="SemiBold" Foreground="#333"/>
+                <TextBlock Grid.Column="8" Text="Details" FontWeight="SemiBold" Foreground="#333"
+                           IsVisible="{Binding ViewMode, Converter={x:Static converters:ViewModeIsDiffConverter.Instance}}"/>
             </Grid>
         </Border>
 
         <!-- Issue List -->
-        <ListBox Grid.Row="3" ItemsSource="{Binding Issues}">
+        <ListBox x:Name="IssueListBox" Grid.Row="3" ItemsSource="{Binding Issues}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Border Background="White"
                            BorderBrush="#E0E0E0"
                            BorderThickness="0,0,0,1"
                            Padding="12,8">
-                        <Grid ColumnDefinitions="80,*,100,120,120,120,120,150">
+                        <Grid ColumnDefinitions="80,*,100,120,120,120,120,150,32">
                             <Button Grid.Column="0"
                                    Click="OnIssueNumberClicked"
                                    Content="{Binding Number}"
@@ -290,6 +292,23 @@
                                       Text="{Binding LastRun}"
                                       Foreground="#666"
                                       FontSize="11"/>
+                            <!-- Details column: only visible in Diff view; icon shown when issue has diff details -->
+                            <StackPanel Grid.Column="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        IsVisible="{Binding #IssueListBox.DataContext, Converter={x:Static converters:ViewModeIsDiffConverter.Instance}}">
+                                <Button x:Name="DiffDetailsButton"
+                                        Content="!"
+                                        Click="OnDiffDetailsClicked"
+                                        IsVisible="{Binding HasDiffDetails}"
+                                        Background="Transparent"
+                                        Foreground="#FF9800"
+                                        FontWeight="Bold"
+                                        FontSize="12"
+                                        Padding="4,0"
+                                        MinWidth="0"
+                                        MinHeight="0"
+                                        Cursor="Hand"
+                                        ToolTip.Tip="{Binding DiffSummaryTooltip}"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </DataTemplate>
