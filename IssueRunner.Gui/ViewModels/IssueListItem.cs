@@ -13,9 +13,23 @@ public class IssueListItem
     public List<IssueResult>? Results { get; set; }
     public List<TestResultDiff>? Diffs { get; set; }
 
+    // Settable issue number (extracted from folder name when metadata is missing)
+    private int? _issueNumber;
+
     // Computed properties from Metadata
-    public int Number => Metadata?.Number ?? 0;
-    public string Title => Metadata?.Title ?? $"Issue {Number}";
+    public int Number => Metadata?.Number ?? _issueNumber ?? 0;
+    public string Title
+    {
+        get
+        {
+            if (Metadata != null && !string.IsNullOrWhiteSpace(Metadata.Title))
+            {
+                return Metadata.Title;
+            }
+            var number = Number;
+            return number > 0 ? $"Issue {number} - Metadata missing" : "Issue 0";
+        }
+    }
     public GithubIssueState State => Metadata?.State ?? GithubIssueState.Open;
     public string? Milestone => Metadata?.Milestone;
     public string? Type
@@ -84,7 +98,38 @@ public class IssueListItem
         }
     }
 
+    /// <summary>
+    /// Detailed reason for the current test result (e.g. skip reason, not tested reason).
+    /// </summary>
+    public string? ResultReason
+    {
+        get
+        {
+            // Prefer explicit reasons coming from test results (e.g. skipped with marker reason)
+            if (Results != null && Results.Count > 0)
+            {
+                var withReason = Results.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Reason));
+                if (withReason != null)
+                {
+                    return withReason.Reason;
+                }
+            }
+
+            // Fall back to NotTestedReason computed in IssueListLoader (missing metadata, not synced, etc.)
+            return NotTestedReason;
+        }
+    }
+
     // Settable properties (computed in IssueListLoader from folder/services)
+    /// <summary>
+    /// Sets the issue number extracted from folder name (used when metadata is missing).
+    /// </summary>
+    public int IssueNumber
+    {
+        get => _issueNumber ?? 0;
+        set => _issueNumber = value;
+    }
+
     public IssueState StateValue { get; set; } = IssueState.New; // New state enum value
     public string DetailedState { get; set; } = ""; // Enhanced state (includes not compiling, skipped, etc.) - for display
     public string? NotTestedReason { get; set; } // Why it's not tested (marker reason, not compiling, etc.)

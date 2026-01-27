@@ -1,8 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
 namespace IssueRunner.Services
 {
@@ -80,39 +76,28 @@ namespace IssueRunner.Services
                 .ToList();
 
             // Find which marker file exists
-            string? foundMarker = null;
-            foreach (var markerFile in markerFiles)
-            {
-                if (files.Contains(markerFile))
-                {
-                    foundMarker = markerFile;
-                    break;
-                }
-            }
+            string? foundMarker = markerFiles.FirstOrDefault(markerFile => files.Contains(markerFile));
 
             // Map marker file name to display reason
             // State column should just show "skipped", detailed reason goes below (without "Skipped" prefix)
-            string markerReason;
             if (foundMarker == null)
-            {
-                markerReason = "marker file";
+            { 
+                return "no marker file";
             }
-            else
-            {
-                // Remove .md extension for matching
-                var markerBase = foundMarker.Replace(".md", "");
 
-                markerReason = markerBase switch
-                {
-                    "ignore" => "Ignored",
-                    "explicit" => "Explicit",
-                    "gui" => "GUI",
-                    "wip" => "WIP",
-                    "closednotplanned" => "Closed Not Planned",
-                    "closedasnotplanned" => "Closed As Not Planned",
-                    _ => "marker file"
-                };
-            }
+            // Remove .md extension for matching
+            var markerBase = foundMarker.Replace(".md", "").ToLower();
+
+            var markerReason = markerBase switch
+            {
+                "ignore" => "Ignored",
+                "explicit" => "Explicit",
+                "gui" => "GUI",
+                "wip" => "WIP",
+                "closednotplanned" => "Closed Not Planned",
+                "closedasnotplanned" => "Closed Not Planned",
+                _ => "marker file"
+            };
 
             return markerReason;
         }

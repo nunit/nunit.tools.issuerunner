@@ -62,6 +62,12 @@ public class MainViewModel : ViewModelBase
             CheckRegressionsCommand = ReactiveCommand.CreateFromTask(CheckRegressionsAsync);
             CheckRegressionsCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Check Regressions exception:", ex));
 
+            ResetSystemCommand = ReactiveCommand.CreateFromTask(ResetSystemAsync);
+            ResetSystemCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Reset System exception:", ex));
+
+            ValidateSystemCommand = ReactiveCommand.CreateFromTask(ValidateSystemAsync);
+            ValidateSystemCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Validate System exception:", ex));
+
             ShowTestStatusCommand = ReactiveCommand.CreateFromTask(ShowTestStatusAsync);
             ShowTestStatusCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLogToFile("Error showing test status:", "ShowTestStatus", ex));
 
@@ -323,6 +329,8 @@ public class MainViewModel : ViewModelBase
     // ResetPackagesCommand moved to IssueListViewModel
     public ReactiveCommand<Unit, Unit> GenerateReportCommand { get; }
     public ReactiveCommand<Unit, Unit> CheckRegressionsCommand { get; }
+    public ReactiveCommand<Unit, Unit> ResetSystemCommand { get; }
+    public ReactiveCommand<Unit, Unit> ValidateSystemCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowTestStatusCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowIssueListCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowOptionsCommand { get; }
@@ -1223,6 +1231,58 @@ public class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             LogDetailedException("CheckRegressionsAsync", ex);
+        }
+    }
+
+    private async Task ResetSystemAsync()
+    {
+        try
+        {
+            if (!ValidateRepository())
+            {
+                return;
+            }
+
+            AppendLog("Resetting system...");
+
+            await ExecuteCommandWithConsoleCaptureAsync(async () =>
+            {
+                var cmd = _services.GetRequiredService<ResetSystemCommand>();
+                return await cmd.ExecuteAsync(CancellationToken.None);
+            }, 
+            exitCode => AppendLog(exitCode == 0
+                    ? "System reset completed successfully."
+                : $"System reset completed with errors (exit code: {exitCode})."));
+        }
+        catch (Exception ex)
+        {
+            LogDetailedException("ResetSystemAsync", ex);
+        }
+    }
+
+    private async Task ValidateSystemAsync()
+    {
+        try
+        {
+            if (!ValidateRepository())
+            {
+                return;
+            }
+
+            AppendLog("Validating system data files...");
+
+            await ExecuteCommandWithConsoleCaptureAsync(async () =>
+            {
+                var cmd = _services.GetRequiredService<ValidateSystemCommand>();
+                return await cmd.ExecuteAsync(CancellationToken.None);
+            }, 
+            exitCode => AppendLog(exitCode == 0
+                    ? "Validation completed successfully."
+                : $"Validation completed with errors (exit code: {exitCode})."));
+        }
+        catch (Exception ex)
+        {
+            LogDetailedException("ValidateSystemAsync", ex);
         }
     }
 }

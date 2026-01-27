@@ -149,6 +149,13 @@ public sealed class IssueResult
     [JsonPropertyName("run_result")]
     public RunResult? RunResult { get; init; }
 
+
+    /// <summary>
+    /// Reason for whatever happened, e.g. skipped, failed, etc.
+    /// </summary>
+    [JsonPropertyName("reason")]
+    public string Reason { get; init; } = "";
+
     public override bool Equals(object? obj)
     {
         if (obj is not IssueResult other)
@@ -161,6 +168,18 @@ public sealed class IssueResult
                TestConclusion == other.TestConclusion &&
                ((RunResult == null && other.RunResult == null) ||
                 (RunResult != null && RunResult.Equals(other.RunResult)));
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(
+            Number,
+            UpdateResult,
+            RestoreResult,
+            BuildResult,
+            TestResult,
+            TestConclusion,
+            RunResult);
     }
 }
 

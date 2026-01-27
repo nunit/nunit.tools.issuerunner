@@ -115,6 +115,8 @@ public partial class App : Application
         services.AddTransient<GenerateReportCommand>();
         services.AddTransient<CheckRegressionsCommand>();
         services.AddTransient<MergeResultsCommand>();
+        services.AddTransient<ResetSystemCommand>();
+        services.AddTransient<ValidateSystemCommand>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

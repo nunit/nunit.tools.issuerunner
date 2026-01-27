@@ -202,6 +202,16 @@
                             <Button Content="Set Baseline" 
                                    Command="{Binding SetBaselineCommand}"
                                    IsEnabled="{Binding !IsRunningTests}"/>
+                            <Button Content="Reset System" 
+                                   Command="{Binding ResetSystemCommand}"
+                                   IsEnabled="{Binding !IsRunningTests}"
+                                   Background="#D13438"
+                                   Foreground="White"
+                                   Padding="12,8"/>
+                            <Button Content="Validate" 
+                                   Command="{Binding ValidateSystemCommand}"
+                                   IsEnabled="{Binding !IsRunningTests}"
+                                   Padding="12,8"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

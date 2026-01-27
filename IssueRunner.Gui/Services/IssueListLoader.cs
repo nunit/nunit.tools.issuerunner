@@ -435,6 +435,7 @@ public sealed class IssueListLoader(
                 issues.Add(new IssueListItem
                 {
                     Metadata = metadata,
+                    IssueNumber = issueNum, // Set issue number from folder name (used when metadata is missing)
                     Results = issueResults,
                     Diffs = issueDiffs,
                     StateValue = stateValue,
@@ -457,6 +458,7 @@ public sealed class IssueListLoader(
                 issues.Add(new IssueListItem
                 {
                     Metadata = metadataDict.GetValueOrDefault(issueNum),
+                    IssueNumber = issueNum, // Set issue number from folder name (used when metadata is missing)
                     Results = null,
                     Diffs = null,
                     StateValue = IssueState.Synced,

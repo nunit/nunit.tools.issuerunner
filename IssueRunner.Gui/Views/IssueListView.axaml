@@ -275,6 +275,12 @@
                                         <TextBlock Text="{Binding ChangeTooltip}"/>
                                     </ToolTip.Tip>
                                 </TextBlock>
+                                <!-- Optional detailed reason (e.g. skip reason) shown as small text under the main result -->
+                                <TextBlock Text="{Binding ResultReason}"
+                                           FontSize="10"
+                                           Foreground="#888"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding ResultReason, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                             </StackPanel>
                             <TextBlock Grid.Column="6"
                                       Text="{Binding RunType}"

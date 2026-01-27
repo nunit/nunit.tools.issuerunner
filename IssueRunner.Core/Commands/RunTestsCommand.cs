@@ -229,7 +229,7 @@ public sealed class RunTestsCommand
             {
                 Console.WriteLine($"[{issueNumber}] Skipped due to marker file");
                 // Create a result entry for skipped issue
-                var skippedResult = CreateSkippedIssueResult(issueNumber, folderPath, metadataDict, options);
+                var skippedResult = CreateSkippedIssueResult(issueNumber, folderPath, metadataDict, options, _markerService.GetMarkerReason(folderPath));
                 if (skippedResult != null)
                 {
                     results.Add(skippedResult);
@@ -237,18 +237,9 @@ public sealed class RunTestsCommand
                 continue;
             }
 
-            // Check if issue has been synced (has initial state)
-            var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
-            if (!File.Exists(initialStatePath))
-            {
-                Console.WriteLine($"[{issueNumber}] Not synced - skipping");
-                var notSyncedResult = CreateNotSyncedIssueResult(issueNumber, folderPath, metadataDict, options);
-                if (notSyncedResult != null)
-                {
-                    results.Add(notSyncedResult);
-                }
-                continue;
-            }
+            // Note: We allow issues without initial state file to run
+            // The initial state is only needed for package reset, which isn't required for running tests
+            // Issues without metadata/initial state can still be run to test their current state
 
             // Upgrade frameworks before processing
             _frameworkUpgrade.UpgradeAllProjectFrameworks(folderPath, issueNumber);
@@ -319,21 +310,27 @@ public sealed class RunTestsCommand
             filtered = filtered
                 .Where(kvp => options.IssueNumbers.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            
+            // When specific issue numbers are provided, skip scope filtering
+            // The user has already selected which issues to run (e.g., "Not synced" issues)
+            // This allows issues without metadata to be run
         }
-
-        // Apply scope filter
-        filtered = options.Scope switch
+        else
         {
-            TestScope.Regression => filtered
-                .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Closed)
-                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
-            
-            TestScope.Open => filtered
-                .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Open)
-                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
-            
-            _ => filtered
-        };
+            // Apply scope filter only when no specific issue numbers are provided
+            filtered = options.Scope switch
+            {
+                TestScope.Regression => filtered
+                    .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Closed)
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+                
+                TestScope.Open => filtered
+                    .Where(kvp => metadata.TryGetValue(kvp.Key, out var m) && m.State == GithubIssueState.Open)
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+                
+                _ => filtered
+            };
+        }
 
         if (options.RunType != RunType.All)
         {
@@ -1180,11 +1177,10 @@ public sealed class RunTestsCommand
     /// <summary>
     /// Creates an IssueResult for a skipped issue (has marker file).
     /// </summary>
-    private IssueResult? CreateSkippedIssueResult(
-        int issueNumber,
+    private IssueResult? CreateSkippedIssueResult(int issueNumber,
         string folderPath,
         Dictionary<int, IssueMetadata> metadataDict,
-        RunOptions options)
+        RunOptions options, string markerReason)
     {
         // Get project files to determine project path
         var projectFiles = GetProjectFilesForIssue(folderPath, issueNumber);
@@ -1203,14 +1199,15 @@ public sealed class RunTestsCommand
             ProjectPath = Path.GetRelativePath(folderPath, projectFile),
             ProjectStyle = _projectAnalyzer.GetProjectStyle(projectFile),
             TargetFrameworks = frameworks,
-            Packages = new List<string>(), // No packages for skipped issues
+            Packages = [], // No packages for skipped issues
             UpdateResult = StepResultStatus.NotRun,
             RestoreResult = StepResultStatus.NotRun,
             BuildResult = StepResultStatus.NotRun,
             TestResult = StepResultStatus.NotRun,
             Feed = options.Feed.ToString(),
             LastRun = now,
-            RunResult = RunResult.Skipped
+            RunResult = RunResult.Skipped,
+            Reason = markerReason
         };
     }
 

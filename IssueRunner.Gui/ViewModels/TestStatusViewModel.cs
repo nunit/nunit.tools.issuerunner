@@ -163,7 +163,7 @@ public class TestStatusViewModel : ViewModelBase
             catch { /* Ignore metadata loading errors */ }
         }
         
-        // Helper function to get issue display name from metadata or fallback to "Issue{Number}"
+        // Helper function to get issue display name from metadata or fallback to "Issue{Number} - Metadata missing"
         string GetIssueDisplayName(int issueNumber)
         {
             if (metadataDict.TryGetValue(issueNumber, out var metadata) && 
@@ -171,7 +171,7 @@ public class TestStatusViewModel : ViewModelBase
             {
                 return metadata.Title;
             }
-            return $"Issue{issueNumber}";
+            return $"Issue {issueNumber} - Metadata missing";
         }
         
         // Helper to extract issue number from Issue string (either "Issue{Number}" or title)

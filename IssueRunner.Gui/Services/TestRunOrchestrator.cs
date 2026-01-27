@@ -205,7 +205,8 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
                 IssueNumbers = issueNumbers // Use the filtered list
             };
 
-            // Count only runnable issues (excluding skipped and not synced)
+            // Count only runnable issues (excluding skipped issues)
+            // Note: Issues without metadata/initial state can still be run
             var issueFolders = _issueDiscovery.DiscoverIssueFolders();
             var runnableCount = 0;
             foreach (var issueNumber in issueNumbers)
@@ -598,18 +599,14 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
             return false;
         }
 
-        // Skip if not synced (missing initial state file)
-        var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
-        if (!File.Exists(initialStatePath))
-        {
-            return false;
-        }
-
+        // Allow issues without initial state file to run (they just can't reset packages)
+        // The initial state is only needed for package reset, which isn't required for running tests
         return true;
     }
 
     /// <summary>
-    /// Counts only runnable issues (excluding skipped and not synced).
+    /// Counts only runnable issues (excluding skipped issues).
+    /// Note: Issues without metadata/initial state can still be run.
     /// </summary>
     private int CountRunnableIssues(Dictionary<int, string> issueFolders)
     {

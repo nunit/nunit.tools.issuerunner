@@ -133,9 +133,15 @@ public class RunTestsStatusViewModel : ViewModelBase
             {
                 UpdateCanSetBaseline();
                 UpdateDurationTimer();
+                OnPropertyChanged(nameof(IsFinished));
             }
         }
     }
+
+    /// <summary>
+    /// Indicates that processing has finished (run is not running and has an end time).
+    /// </summary>
+    public bool IsFinished => !_isRunning && _endTime.HasValue;
 
     private void UpdateCanSetBaseline()
     {
