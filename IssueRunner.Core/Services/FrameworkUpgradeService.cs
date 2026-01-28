@@ -13,7 +13,7 @@ public sealed partial class FrameworkUpgradeService : IFrameworkUpgradeService
 
     private static readonly HashSet<string> LegacyNetFrameworks = new(StringComparer.OrdinalIgnoreCase)
     {
-        "net35", "net40", "net45", "net451", "net452", "net46", "net461"
+        "net35", "net40", "net45", "net451", "net452","net46", "net461"
     };
 
     /// <summary>
@@ -141,7 +141,7 @@ public sealed partial class FrameworkUpgradeService : IFrameworkUpgradeService
         foreach (var tfm in frameworks)
         {
             var upgraded = MapFrameworkToLatest(tfm);
-            
+
             if (upgraded != tfm)
             {
                 modified = true;
@@ -166,7 +166,7 @@ public sealed partial class FrameworkUpgradeService : IFrameworkUpgradeService
         var tfm = framework.Trim().ToLowerInvariant();
 
         // Legacy .NET Framework -> net462
-        if (LegacyNetFrameworks.Contains(tfm))
+        if (LegacyNetFrameworks.Contains(tfm.Replace(".","")))
         {
             return "net462";
         }
