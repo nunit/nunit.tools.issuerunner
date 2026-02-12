@@ -40,6 +40,112 @@ public sealed class PackageUpdateService : IPackageUpdateService
     }
 
     /// <inheritdoc />
+    public async Task ApplyNuGetConfigForFeedAsync(
+        string workingDirectory,
+        PackageFeed feed,
+        CancellationToken cancellationToken)
+    {
+        switch (feed)
+        {
+            case PackageFeed.Stable:
+            case PackageFeed.Beta:
+            case PackageFeed.Initial:
+                await RemoveMyGetSourceAsync(workingDirectory, cancellationToken);
+                await RemoveLocalSourceAsync(workingDirectory, cancellationToken);
+                break;
+            case PackageFeed.Alpha:
+                await RemoveLocalSourceAsync(workingDirectory, cancellationToken);
+                await EnsureMyGetSourceAsync(workingDirectory, cancellationToken);
+                break;
+            case PackageFeed.Local:
+                await RemoveMyGetSourceAsync(workingDirectory, cancellationToken);
+                await EnsureLocalSourceAsync(workingDirectory, cancellationToken);
+                break;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<(bool Success, string Output, string Error)> RestoreToInitialStateAsync(
+        string issueFolderPath,
+        string projectPath,
+        CancellationToken cancellationToken)
+    {
+        var initialStatePath = Path.Combine(issueFolderPath, "issue_initialstate.json");
+        if (!File.Exists(initialStatePath))
+        {
+            return (false, "", "issue_initialstate.json not found");
+        }
+
+        IssueInitialState? state;
+        try
+        {
+            var json = await File.ReadAllTextAsync(initialStatePath, cancellationToken);
+            state = JsonSerializer.Deserialize<IssueInitialState>(json);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load issue_initialstate.json");
+            return (false, "", ex.Message);
+        }
+
+        if (state?.Projects == null || state.Projects.Count == 0)
+        {
+            return (false, "", "No projects in issue_initialstate.json");
+        }
+
+        var projectRel = Path.GetRelativePath(issueFolderPath, projectPath).Replace('\\', '/');
+        var projectState = state.Projects
+            .FirstOrDefault(p => p.ProjectPath.Replace('\\', '/').Equals(projectRel, StringComparison.OrdinalIgnoreCase));
+        if (projectState == null)
+        {
+            return (false, "", $"No initial state for project {projectRel}");
+        }
+
+        try
+        {
+            var doc = XDocument.Load(projectPath);
+            var root = doc.Root;
+            if (root == null)
+            {
+                return (false, "", "Invalid project file");
+            }
+
+            var updated = false;
+            var metadataPackages = projectState.Packages?
+                .ToDictionary(p => p.Name, p => p.Version, StringComparer.OrdinalIgnoreCase);
+            if (metadataPackages != null)
+            {
+                foreach (var packageRef in root.Descendants("PackageReference"))
+                {
+                    var name = packageRef.Attribute("Include")?.Value;
+                    if (name != null && metadataPackages.TryGetValue(name, out var version))
+                    {
+                        var versionAttr = packageRef.Attribute("Version");
+                        if (versionAttr != null && versionAttr.Value != version)
+                        {
+                            versionAttr.Value = version;
+                            updated = true;
+                            _logger.LogDebug("Restored {Package} to {Version}", name, version);
+                        }
+                    }
+                }
+            }
+
+            if (updated)
+            {
+                doc.Save(projectPath);
+            }
+
+            return (true, "Restored to initial state", "");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error restoring to initial state");
+            return (false, "", ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<(bool Success, string Output, string Error)>
         UpdatePackagesAsync(
             string projectPath,
@@ -48,21 +154,7 @@ public sealed class PackageUpdateService : IPackageUpdateService
             int timeoutSeconds,
             CancellationToken cancellationToken)
     {
-        // For Alpha feed, ensure MyGet source is configured
-        if (feed == PackageFeed.Alpha)
-        {
-            await EnsureMyGetSourceAsync(cancellationToken);
-        }
-
-        // For Local feed, ensure local source is configured
-        if (feed == PackageFeed.Local)
-        {
-            var localOk = await EnsureLocalSourceAsync(cancellationToken);
-            if (!localOk)
-            {
-                return (false, "", "Failed to configure local feed at C:\\nuget");
-            }
-        }
+        // NuGet config is applied once at run start via ApplyNuGetConfigForFeedAsync(repositoryRoot, feed).
 
         if (nunitOnly)
         {
@@ -93,18 +185,75 @@ public sealed class PackageUpdateService : IPackageUpdateService
             cancellationToken);
     }
 
-    private async Task EnsureMyGetSourceAsync(CancellationToken cancellationToken)
+    private async Task RemoveMyGetSourceAsync(string workingDirectory, CancellationToken cancellationToken)
+    {
+        const string sourceName = "nunit-myget";
+        try
+        {
+            var (_, output, _) = await _processExecutor.ExecuteAsync(
+                "dotnet",
+                "nuget list source",
+                workingDirectory,
+                30,
+                cancellationToken);
+
+            if (!output.Contains(sourceName, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _logger.LogDebug("Removing MyGet source");
+            await _processExecutor.ExecuteAsync(
+                "dotnet",
+                "nuget remove source " + sourceName,
+                workingDirectory,
+                30,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to remove MyGet source");
+        }
+    }
+
+    private async Task RemoveLocalSourceAsync(string workingDirectory, CancellationToken cancellationToken)
+    {
+        const string sourceName = "nunit-local";
+        try
+        {
+            var (_, output, _) = await _processExecutor.ExecuteAsync(
+                "dotnet",
+                "nuget list source",
+                workingDirectory,
+                30,
+                cancellationToken);
+
+            if (output.IndexOf(sourceName, StringComparison.OrdinalIgnoreCase) < 0)
+                return;
+
+            _logger.LogDebug("Removing local source");
+            await _processExecutor.ExecuteAsync(
+                "dotnet",
+                "nuget remove source " + sourceName,
+                workingDirectory,
+                30,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to remove local source");
+        }
+    }
+
+    private async Task EnsureMyGetSourceAsync(string workingDirectory, CancellationToken cancellationToken)
     {
         const string mygetSourceName = "nunit-myget";
         const string mygetUrl = "https://www.myget.org/F/nunit/api/v3/index.json";
 
         try
         {
-            // Check if source already exists
             var (exitCode, output, _) = await _processExecutor.ExecuteAsync(
                 "dotnet",
                 "nuget list source",
-                Directory.GetCurrentDirectory(),
+                workingDirectory,
                 30,
                 cancellationToken);
 
@@ -114,11 +263,10 @@ public sealed class PackageUpdateService : IPackageUpdateService
                 return;
             }
 
-            // Add MyGet source
             var (addExitCode, addOutput, addError) = await _processExecutor.ExecuteAsync(
                 "dotnet",
                 $"nuget add source {mygetUrl} --name {mygetSourceName}",
-                Directory.GetCurrentDirectory(),
+                workingDirectory,
                 30,
                 cancellationToken);
 
@@ -255,7 +403,7 @@ public sealed class PackageUpdateService : IPackageUpdateService
         // stable-only resolution.
         args += feed switch
         {
-            PackageFeed.Stable => " --pre-release Never",
+            PackageFeed.Stable or PackageFeed.Initial => " --pre-release Never",
             PackageFeed.Beta or PackageFeed.Alpha or PackageFeed.Local => " --pre-release Always",
             _ => ""
         };
@@ -313,7 +461,7 @@ public sealed class PackageUpdateService : IPackageUpdateService
         return (false, output, error);
     }
 
-    private async Task<bool> EnsureLocalSourceAsync(CancellationToken cancellationToken)
+    private async Task EnsureLocalSourceAsync(string workingDirectory, CancellationToken cancellationToken)
     {
         const string sourceName = "nunit-local";
         const string sourcePath = "C:\\nuget";
@@ -323,45 +471,43 @@ public sealed class PackageUpdateService : IPackageUpdateService
             var (exitCode, output, _) = await _processExecutor.ExecuteAsync(
                 "dotnet",
                 "nuget list source",
-                Directory.GetCurrentDirectory(),
+                workingDirectory,
                 30,
                 cancellationToken);
 
             if (exitCode == 0 && output.IndexOf(sourceName, StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                return true;
+                _logger.LogDebug("Local source already configured");
+                return;
             }
 
             var (addExitCode, addOutput, addError) = await _processExecutor.ExecuteAsync(
                 "dotnet",
                 $"nuget add source \"{sourcePath}\" --name {sourceName}",
-                Directory.GetCurrentDirectory(),
+                workingDirectory,
                 30,
                 cancellationToken);
 
             if (addExitCode == 0)
             {
                 _logger.LogDebug("Added local source for Local feed at {Path}", sourcePath);
-                return true;
+                return;
             }
 
-            // Check if the source already exists (this is not an error)
             if (addError.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
                 addError.Contains("already present", StringComparison.OrdinalIgnoreCase) ||
                 addOutput.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
                 addOutput.Contains("already present", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogDebug("Local source already exists, skipping add");
-                return true;
+                return;
             }
 
             _logger.LogWarning("Failed to add local source: {Error}", addError);
-            return false;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error configuring local source");
-            return false;
         }
     }
 

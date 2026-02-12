@@ -100,6 +100,19 @@ public class NuGetPackageVersionServiceTests
     }
 
     [Test]
+    public async Task GetLatestVersionsAsync_HandlesInitialFeed_ReturnsEmpty()
+    {
+        // Initial feed uses issue_initialstate.json; no "latest" from NuGet.
+        var service = new NuGetPackageVersionService(_logger);
+        var packageIds = new[] { "NUnit", "NUnit3TestAdapter" };
+
+        var result = await service.GetLatestVersionsAsync(packageIds, PackageFeed.Initial, CancellationToken.None);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Is.Empty);
+    }
+
+    [Test]
     public async Task GetLatestVersionsAsync_HandlesCancellation()
     {
         // Arrange

@@ -66,6 +66,31 @@ public sealed class ProjectAnalyzerService : IProjectAnalyzerService
     }
 
     /// <inheritdoc />
+    public (List<string> TargetFrameworks, List<PackageInfo> Packages)
+        ParseProjectContent(string xmlContent)
+    {
+        try
+        {
+            var doc = XDocument.Parse(xmlContent);
+            var root = doc.Root;
+
+            if (root == null)
+            {
+                return ([], []);
+            }
+
+            var frameworks = ParseTargetFrameworks(root);
+            var packages = ParsePackageReferencesFromXml(root);
+            return (frameworks, packages);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error parsing project XML content");
+            return ([], []);
+        }
+    }
+
+    /// <inheritdoc />
     public string GetProjectStyle(string projectFilePath)
     {
         try
@@ -132,6 +157,22 @@ public sealed class ProjectAnalyzerService : IProjectAnalyzerService
         XElement root,
         string projectFilePath)
     {
+        var packages = ParsePackageReferencesFromXml(root);
+
+        var packagesConfigPath = Path.Combine(
+            Path.GetDirectoryName(projectFilePath)!,
+            "packages.config");
+
+        if (File.Exists(packagesConfigPath))
+        {
+            packages.AddRange(ParsePackagesConfig(packagesConfigPath));
+        }
+
+        return packages;
+    }
+
+    private static List<PackageInfo> ParsePackageReferencesFromXml(XElement root)
+    {
         var packages = new List<PackageInfo>();
 
         foreach (var packageRef in root.Descendants("PackageReference"))
@@ -147,15 +188,6 @@ public sealed class ProjectAnalyzerService : IProjectAnalyzerService
                     Version = version
                 });
             }
-        }
-
-        var packagesConfigPath = Path.Combine(
-            Path.GetDirectoryName(projectFilePath)!,
-            "packages.config");
-
-        if (File.Exists(packagesConfigPath))
-        {
-            packages.AddRange(ParsePackagesConfig(packagesConfigPath));
         }
 
         return packages;

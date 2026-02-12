@@ -189,13 +189,12 @@ public sealed partial class FrameworkUpgradeService : IFrameworkUpgradeService
         {
             if (int.TryParse(match.Groups[1].Value, out var major))
             {
-                if (major >= 10)
+                switch (major)
                 {
-                    return framework; // Already net10+ - keep original
-                }
-                if (major >= 5)
-                {
-                    return "net10.0";
+                    case >= 10:
+                        return framework; // Already net10+ - keep original
+                    case >= 5:
+                        return "net10.0";
                 }
             }
         }

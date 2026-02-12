@@ -17,13 +17,7 @@ public class IssueProjectMetadataTests
             State = GithubIssueState.Open,
             Milestone = "v1.0",
             Labels = new List<string> { "bug", "priority:high" },
-            Url = "https://github.com/test/test/issues/228",
-            ProjectPath = "Issue228.csproj",
-            TargetFrameworks = new List<string> { "net10.0" },
-            Packages = new List<PackageInfo>
-            {
-                new PackageInfo { Name = "NUnit", Version = "4.4.0" }
-            }
+            Url = "https://github.com/test/test/issues/228"
         };
 
         // Act
@@ -37,8 +31,6 @@ public class IssueProjectMetadataTests
         Assert.That(deserialized.State, Is.EqualTo(GithubIssueState.Open));
         Assert.That(deserialized.Milestone, Is.EqualTo("v1.0"));
         Assert.That(deserialized.Labels, Is.EquivalentTo(new[] { "bug", "priority:high" }));
-        Assert.That(deserialized.ProjectPath, Is.EqualTo("Issue228.csproj"));
-        Assert.That(deserialized.Packages, Has.Count.EqualTo(1));
     }
 
     [Test]
@@ -52,10 +44,7 @@ public class IssueProjectMetadataTests
             State = GithubIssueState.Open,
             Milestone = null,
             Labels = new List<string>(),
-            Url = "https://github.com/test/test/issues/1",
-            ProjectPath = "Test.csproj",
-            TargetFrameworks = new List<string>(),
-            Packages = new List<PackageInfo>()
+            Url = "https://github.com/test/test/issues/1"
         };
 
         // Act

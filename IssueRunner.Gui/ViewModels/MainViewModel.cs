@@ -68,6 +68,9 @@ public class MainViewModel : ViewModelBase
             ValidateSystemCommand = ReactiveCommand.CreateFromTask(ValidateSystemAsync);
             ValidateSystemCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Validate System exception:", ex));
 
+            UpdateNewIssuesCommand = ReactiveCommand.CreateFromTask(UpdateNewIssuesAsync);
+            UpdateNewIssuesCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLog("Update New Issues exception:", ex));
+
             ShowTestStatusCommand = ReactiveCommand.CreateFromTask(ShowTestStatusAsync);
             ShowTestStatusCommand.ThrownExceptions.Subscribe(ex => AppendExceptionLogToFile("Error showing test status:", "ShowTestStatus", ex));
 
@@ -331,6 +334,7 @@ public class MainViewModel : ViewModelBase
     public ReactiveCommand<Unit, Unit> CheckRegressionsCommand { get; }
     public ReactiveCommand<Unit, Unit> ResetSystemCommand { get; }
     public ReactiveCommand<Unit, Unit> ValidateSystemCommand { get; }
+    public ReactiveCommand<Unit, Unit> UpdateNewIssuesCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowTestStatusCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowIssueListCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowOptionsCommand { get; }
@@ -662,6 +666,7 @@ public class MainViewModel : ViewModelBase
                 viewModel.SetRunTestsCallback(async (issueNumbers) => await RunFilteredTestsAsync(issueNumbers));
                 viewModel.SetShowOptionsCallback(async () => await ShowOptionsAsync());
                 viewModel.SetSyncFromGitHubCommand(SyncFromGitHubCommand);
+                viewModel.SetUpdateNewIssuesCommand(UpdateNewIssuesCommand);
                 viewModel.SetResetPackagesCallback(async (issueNumbers) => await ResetPackagesAsync(issueNumbers));
                 viewModel.SetReloadIssuesCallback(async () => await LoadIssuesIntoViewAsync(viewModel, folders, repositoryPath));
                 viewModel.SetRepositoryBaseUrl(result.RepositoryBaseUrl);
@@ -1271,18 +1276,163 @@ public class MainViewModel : ViewModelBase
 
             AppendLog("Validating system data files...");
 
-            await ExecuteCommandWithConsoleCaptureAsync(async () =>
+            // Capture console output so we can both log it and show it in a result dialog
+            var originalOut = Console.Out;
+            using var logWriter = new StringWriter();
+            Console.SetOut(logWriter);
+
+            int exitCode;
+            try
             {
                 var cmd = _services.GetRequiredService<ValidateSystemCommand>();
-                return await cmd.ExecuteAsync(CancellationToken.None);
-            }, 
-            exitCode => AppendLog(exitCode == 0
-                    ? "Validation completed successfully."
-                : $"Validation completed with errors (exit code: {exitCode})."));
+                exitCode = await cmd.ExecuteAsync(CancellationToken.None);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+            }
+
+            var output = logWriter.ToString();
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                AppendLog(output.TrimEnd());
+            }
+
+            AppendLog(exitCode == 0
+                ? "Validation completed successfully."
+                : $"Validation completed with errors (exit code: {exitCode}).");
+
+            // Build a concise result summary for the dialog
+            var lines = (output ?? string.Empty)
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+                .Select(l => l.TrimEnd())
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToList();
+
+            string dialogText;
+            if (exitCode == 0)
+            {
+                // Prefer the OK lines from each step, especially the initial state summary
+                var okLines = lines
+                    .Where(l =>
+                        l.StartsWith("OK:", StringComparison.OrdinalIgnoreCase) ||
+                        l.Contains("Validation completed successfully", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                dialogText = okLines.Count > 0
+                    ? string.Join(Environment.NewLine, okLines)
+                    : "Validation completed successfully.";
+            }
+            else
+            {
+                // Collect errors and warnings
+                var errorLines = lines
+                    .Where(l =>
+                        l.Contains("ERROR", StringComparison.OrdinalIgnoreCase) ||
+                        l.Contains("Warning", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                dialogText = errorLines.Count > 0
+                    ? string.Join(Environment.NewLine, errorLines)
+                    : (string.IsNullOrWhiteSpace(output)
+                        ? "Validation completed with errors."
+                        : output.TrimEnd());
+            }
+
+            // Show result window with the summary
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var lifetime = Avalonia.Application.Current?.ApplicationLifetime
+                    as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                var mainWindow = lifetime?.MainWindow;
+                if (mainWindow == null)
+                {
+                    return;
+                }
+
+                var dialog = new Views.ValidateSystemDialog(dialogText)
+                {
+                    WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner
+                };
+                dialog.Show(mainWindow);
+            });
         }
         catch (Exception ex)
         {
             LogDetailedException("ValidateSystemAsync", ex);
+        }
+    }
+
+    private async Task UpdateNewIssuesAsync()
+    {
+        try
+        {
+            if (!ValidateRepository())
+            {
+                return;
+            }
+
+            AppendLog("Updating initial state for issues...");
+
+            var originalOut = Console.Out;
+            using var logWriter = new StringWriter();
+            Console.SetOut(logWriter);
+
+            int exitCode;
+            try
+            {
+                var cmd = _services.GetRequiredService<UpdateNewIssuesCommand>();
+                exitCode = await cmd.ExecuteAsync(
+                    _environmentService.Root,
+                    null,
+                    false,
+                    CancellationToken.None);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+            }
+
+            var output = logWriter.ToString();
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                AppendLog(output.TrimEnd());
+            }
+
+            AppendLog(exitCode == 0
+                ? "Update New Issues completed successfully."
+                : $"Update New Issues completed with errors (exit code: {exitCode}).");
+
+            var lines = (output ?? string.Empty)
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+                .Select(l => l.TrimEnd())
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToList();
+
+            string dialogText = lines.Count > 0
+                ? string.Join(Environment.NewLine, lines)
+                : (exitCode == 0 ? "Update New Issues completed successfully." : "Update New Issues completed with errors.");
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var lifetime = Avalonia.Application.Current?.ApplicationLifetime
+                    as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                var mainWindow = lifetime?.MainWindow;
+                if (mainWindow == null)
+                {
+                    return;
+                }
+
+                var dialog = new Views.UpdateNewIssuesDialog(dialogText)
+                {
+                    WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner
+                };
+                dialog.Show(mainWindow);
+            });
+        }
+        catch (Exception ex)
+        {
+            LogDetailedException("UpdateNewIssuesAsync", ex);
         }
     }
 }

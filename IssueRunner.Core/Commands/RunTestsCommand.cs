@@ -26,7 +26,6 @@ public sealed class RunTestsCommand
     private readonly ITestExecutionService _testExecution;
     private readonly ILogger<RunTestsCommand> _logger;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IProcessExecutor _processExecutor;
     private readonly INuGetPackageVersionService _nugetVersions;
     private readonly IEnvironmentService _environmentService;
     private readonly IMarkerService _markerService;
@@ -42,7 +41,6 @@ public sealed class RunTestsCommand
         ITestExecutionService testExecution,
         ILogger<RunTestsCommand> logger,
         ILoggerFactory loggerFactory,
-        IProcessExecutor processExecutor,
         INuGetPackageVersionService nugetVersions,
         IEnvironmentService environmentService,
         IMarkerService markerService)
@@ -54,7 +52,6 @@ public sealed class RunTestsCommand
         _testExecution = testExecution;
         _logger = logger;
         _loggerFactory = loggerFactory;
-        _processExecutor = processExecutor;
         _nugetVersions = nugetVersions;
         _environmentService = environmentService;
         _markerService = markerService;
@@ -128,7 +125,11 @@ public sealed class RunTestsCommand
             // Check if feed changed from previous run
             Console.WriteLine("  Checking feed change...");
             await CheckChangedFeedAndReset(repositoryRoot, options, cancellationToken);
-            
+
+            // Apply nuget.config so it only contains sources required for current feed
+            Console.WriteLine("  Applying NuGet config for feed...");
+            await _packageUpdate.ApplyNuGetConfigForFeedAsync(repositoryRoot, options.Feed, cancellationToken);
+
             var initDuration = DateTime.Now - initStartTime;
             Console.WriteLine($"Initialization completed in {initDuration.TotalSeconds:F1} seconds");
             Console.WriteLine();
@@ -140,6 +141,24 @@ public sealed class RunTestsCommand
                 options,
                 repositoryRoot,
                 cancellationToken);
+
+            if (issuesToRun.Count == 0)
+            {
+                Console.WriteLine("No issues matched the filter criteria.");
+                if (options.IssueNumbers != null && options.IssueNumbers.Count > 0)
+                {
+                    Console.WriteLine($"Requested issues: {string.Join(", ", options.IssueNumbers)}");
+                    var missing = options.IssueNumbers.Where(n => !issueFolders.ContainsKey(n)).ToList();
+                    if (missing.Count > 0)
+                    {
+                        Console.WriteLine($"Issues not found in repository: {string.Join(", ", missing)}");
+                    }
+                }
+                DeleteResultsFile(repositoryRoot);
+                return 1;
+            }
+
+            Console.WriteLine($"Filtered to {issuesToRun.Count} issue(s) to run: {string.Join(", ", issuesToRun.Keys)}");
 
             //Step 2: Upgrade frameworks for filtered issues only, then process
             List<IssueResult> results;
@@ -220,10 +239,14 @@ public sealed class RunTestsCommand
         var results = new List<IssueResult>();
         var isFirstIssue = true;
 
+        Console.WriteLine($"Processing {issuesToRun.Count} issue(s)...");
+
         foreach (var (issueNumber, folderPath) in issuesToRun)
         {
             // Check for cancellation before processing each issue
             cancellationToken.ThrowIfCancellationRequested();
+
+            Console.WriteLine($"[{issueNumber}] Processing issue folder: {folderPath}");
 
             if (_markerService.ShouldSkipIssue(folderPath))
             {
@@ -256,6 +279,10 @@ public sealed class RunTestsCommand
             {
                 results.Add(result);
                 isFirstIssue = false;
+            }
+            else
+            {
+                Console.WriteLine($"[{issueNumber}] ProcessIssueAsync returned null (issue was filtered out or had no runnable content)");
             }
         }
 
@@ -334,15 +361,35 @@ public sealed class RunTestsCommand
 
         if (options.RunType != RunType.All)
         {
+            var beforeRunTypeFilter = filtered.Count;
+            var filteredOutIssues = new List<int>();
+            
             filtered = filtered
                 .Where(kvp =>
                 {
                     var hasCustom = _testExecution.HasCustomRunners(kvp.Value);
-                    return options.RunType == RunType.Script
+                    var matches = options.RunType == RunType.Script
                         ? hasCustom
                         : !hasCustom;
+                    
+                    if (!matches)
+                    {
+                        filteredOutIssues.Add(kvp.Key);
+                        Console.WriteLine($"[{kvp.Key}] Filtered out by RunType filter: RunType={options.RunType}, hasCustomScripts={hasCustom}");
+                    }
+                    else if (options.Verbosity == LogVerbosity.Verbose)
+                    {
+                        Console.WriteLine($"[{kvp.Key}] RunType filter: hasCustom={hasCustom}, RunType={options.RunType}, matches={matches}");
+                    }
+                    
+                    return matches;
                 })
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            
+            if (beforeRunTypeFilter != filtered.Count)
+            {
+                Console.WriteLine($"RunType filter ({options.RunType}) filtered out {beforeRunTypeFilter - filtered.Count} issue(s): {string.Join(", ", filteredOutIssues)}, {filtered.Count} remaining");
+            }
         }
 
         return filtered;
@@ -358,53 +405,84 @@ public sealed class RunTestsCommand
     {
         // Framework already upgraded in ExecuteAsync before this is called
         var projectFiles = GetProjectFilesForIssue(folderPath, issueNumber);
-        
-        if (projectFiles.Count == 0)
+        var hasCustomScripts = _testExecution.HasCustomRunners(folderPath);
+
+        // Always show script detection results - critical for debugging
+        if (hasCustomScripts)
         {
-            if (options.Verbosity == LogVerbosity.Verbose)
-            {
-                Console.WriteLine($"[{issueNumber}] No project files found");
-            }
+            Console.WriteLine($"[{issueNumber}] Custom scripts detected in {folderPath}");
+        }
+        else
+        {
+            Console.WriteLine($"[{issueNumber}] No custom scripts found in {folderPath}");
+        }
+        
+        Console.WriteLine($"[{issueNumber}] Found {projectFiles.Count} project file(s)");
+
+        // If there are no project files and no custom scripts, there is nothing to run
+        if (!hasCustomScripts && projectFiles.Count == 0)
+        {
+            Console.WriteLine($"[{issueNumber}] ERROR: No project files found and no custom scripts present - nothing to run");
             return null;
         }
 
-        var projectFile = projectFiles.First();
+        // Parse project file for framework filtering and metadata (only if project files exist)
+        string? projectFile = projectFiles.Count > 0 ? projectFiles.First() : null;
+        List<string> frameworks = [];
+        List<PackageInfo> packages = [];
         
-        // Re-parse after framework upgrade
-        var (frameworks, packages) = _projectAnalyzer.ParseProjectFile(projectFile);
-
-        if (ShouldSkipFramework(frameworks, folderPath, options))
+        if (projectFile != null)
         {
-            if (options.Verbosity == LogVerbosity.Verbose)
+            // Re-parse after framework upgrade
+            (frameworks, packages) = _projectAnalyzer.ParseProjectFile(projectFile);
+
+            if (ShouldSkipFramework(frameworks, folderPath, options))
             {
-                Console.WriteLine($"[{issueNumber}] Skipped (not netfx-only; --only-netfx enabled)");
+                if (options.Verbosity == LogVerbosity.Verbose)
+                {
+                    Console.WriteLine($"[{issueNumber}] Skipped (not netfx-only; --only-netfx enabled)");
+                }
+                return null;
             }
-            return null;
         }
 
-        // Display target NUnit package versions once, before any package updates kick off
-        if (isFirstIssue)
+        // Display target NUnit package versions once, before any package updates kick off (skip for Initial feed)
+        if (isFirstIssue && options.Feed != PackageFeed.Initial)
         {
             await PrintTargetNUnitVersionsAsync(repositoryRoot, options.Feed, cancellationToken);
         }
 
-        // Step 2: Update packages for all relevant projects in this issue folder
+        // Step 2: Update packages (or restore to initial state) for all relevant projects in this issue folder
         var updateOutputs = new List<string>();
         var updateErrors = new List<string>();
         var updateSuccess = true;
 
+        // For script-only issues we may not have any project files; in that case,
+        // skip package update and rely entirely on the script behavior.
         foreach (var proj in projectFiles)
         {
             var rel = Path.GetRelativePath(Path.GetDirectoryName(folderPath)!, proj);
-            Console.WriteLine($"[{issueNumber}] Updating packages in {rel}");
+            Console.WriteLine($"[{issueNumber}] {(options.Feed == PackageFeed.Initial ? "Restoring" : "Updating")} packages in {rel}");
 
-            var (success, output, error) =
-                await _packageUpdate.UpdatePackagesAsync(
+            bool success;
+            string output;
+            string error;
+            if (options.Feed == PackageFeed.Initial)
+            {
+                (success, output, error) = await _packageUpdate.RestoreToInitialStateAsync(
+                    folderPath,
+                    proj,
+                    cancellationToken);
+            }
+            else
+            {
+                (success, output, error) = await _packageUpdate.UpdatePackagesAsync(
                     proj,
                     options.NUnitOnly,
                     options.Feed,
                     options.TimeoutSeconds,
                     cancellationToken);
+            }
 
             updateSuccess &= success;
 
@@ -421,6 +499,92 @@ public sealed class RunTestsCommand
 
         var updateOutput = string.Join("\n\n", updateOutputs);
         var updateError = string.Join("\n\n", updateErrors);
+
+        // If custom scripts are present for this issue, prefer a single script execution
+        // for the test phase regardless of how many project files exist.
+        if (hasCustomScripts)
+        {
+            var scriptExecution = await _testExecution.ExecuteTestsAsync(
+                folderPath,          // projectPath is unused for custom scripts
+                folderPath,
+                options.TimeoutSeconds,
+                cancellationToken);
+
+            var scriptTestSuccess = scriptExecution.OverallSuccess;
+            var scriptTestOutput = scriptExecution.TestResult.Output;
+            var scriptTestError = scriptExecution.TestResult.Error;
+
+            // For custom scripts we don't know restore/build status; treat them as successful
+            string? scriptFailedStep = scriptExecution.TestResult.Status == StepStatus.Failed ? "test" : null;
+            var scriptConclusion = BuildConclusion(scriptTestSuccess, updateSuccess, scriptTestOutput, scriptTestError, scriptFailedStep);
+
+            Console.WriteLine($"[{issueNumber}] {scriptConclusion}");
+
+            if (!scriptTestSuccess && options.Verbosity == LogVerbosity.Normal && !string.IsNullOrWhiteSpace(scriptTestError))
+            {
+                Console.WriteLine(scriptTestError);
+            }
+
+            var scriptNow = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+            // Use the first project file for metadata when available; otherwise treat it as script-only.
+            string projectPathForResult;
+            string? projectStyle;
+            List<string> targetFrameworks;
+            List<string> packageList;
+
+            if (projectFiles.Count > 0)
+            {
+                var proj = projectFiles.First();
+                projectPathForResult = Path.GetRelativePath(folderPath, proj);
+                projectStyle = _projectAnalyzer.GetProjectStyle(proj);
+                var (fw, pkgs) = _projectAnalyzer.ParseProjectFile(proj);
+                targetFrameworks = fw;
+                packageList = pkgs.Select(p => $"{p.Name}={p.Version}").ToList();
+            }
+            else
+            {
+                projectPathForResult = "scripts";
+                projectStyle = null;
+                targetFrameworks = new List<string>();
+                packageList = new List<string>();
+            }
+
+            var scriptResult = new IssueResult
+            {
+                Number = issueNumber,
+                ProjectPath = projectPathForResult,
+                ProjectStyle = projectStyle,
+                TargetFrameworks = targetFrameworks,
+                Packages = packageList,
+                UpdateResult = updateSuccess ? StepResultStatus.Success : StepResultStatus.Failed,
+                UpdateOutput = updateOutput,
+                UpdateError = updateError,
+                // For script runs, assume restore and build succeeded
+                RestoreResult = StepResultStatus.Success,
+                RestoreOutput = scriptExecution.RestoreResult.Output,
+                RestoreError = scriptExecution.RestoreResult.Error,
+                BuildResult = StepResultStatus.Success,
+                BuildOutput = scriptExecution.BuildResult.Output,
+                BuildError = scriptExecution.BuildResult.Error,
+                TestResult = scriptExecution.TestResult.Status switch
+                {
+                    StepStatus.Success => StepResultStatus.Success,
+                    StepStatus.Failed => StepResultStatus.Failed,
+                    _ => StepResultStatus.NotRun
+                },
+                TestOutput = scriptTestOutput,
+                TestError = scriptTestError,
+                TestConclusion = scriptConclusion,
+                RunSettings = scriptExecution.RunSettings,
+                RunnerScripts = scriptExecution.Scripts,
+                Feed = options.Feed.ToString(),
+                LastRun = scriptNow,
+                RunResult = RunResult.Run
+            };
+
+            return scriptResult;
+        }
 
         if (options.Verbosity == LogVerbosity.Verbose && !string.IsNullOrWhiteSpace(updateOutput))
         {
@@ -595,6 +759,14 @@ public sealed class RunTestsCommand
             testResultStatus = lastTestResult.TestResult.Status;
         }
 
+        // If tests were executed via custom scripts, we don't know restore/build status.
+        // Treat restore and build as successful and use only the test result for success/failure.
+        if (scripts is { Count: > 0 })
+        {
+            restoreResult = StepStatus.Success;
+            buildResult = StepStatus.Success;
+        }
+
         // Show result
         var conclusion = BuildConclusion(testSuccess, updateSuccess, testOutput, testError, failedStep);
         
@@ -606,6 +778,14 @@ public sealed class RunTestsCommand
         }
 
         var now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        
+        // This code path is only reached when hasCustomScripts is false, which means we must have project files
+        if (projectFile == null)
+        {
+            _logger.LogError("[{Issue}] Unexpected: projectFile is null in dotnet test path", issueNumber);
+            return null;
+        }
+        
         var result = new IssueResult
         {
             Number = issueNumber,
@@ -764,12 +944,29 @@ public sealed class RunTestsCommand
         var metadataPath = Path.Combine(issueFolderPath, "issue_metadata.json");
         var projectFiles = new List<string>();
 
+        Console.WriteLine($"[{issueNumber}] Checking for project files in: {issueFolderPath}");
+        Console.WriteLine($"[{issueNumber}] Metadata file exists: {File.Exists(metadataPath)}");
+
         if (File.Exists(metadataPath))
         {
             try
             {
                 var json = File.ReadAllText(metadataPath);
+                Console.WriteLine($"[{issueNumber}] Metadata file content length: {json.Length} bytes");
+                
+                if (string.IsNullOrWhiteSpace(json) || json.Trim() == "[]")
+                {
+                    Console.WriteLine($"[{issueNumber}] WARNING: Metadata file is empty or contains empty array - no project paths available");
+                }
+                else
+                {
+                    Console.WriteLine($"[{issueNumber}] Metadata file content preview (first 200 chars): {json.Substring(0, Math.Min(200, json.Length))}");
+                }
+                
                 using var doc = JsonDocument.Parse(json);
+                
+                var elementCount = doc.RootElement.EnumerateArray().Count();
+                Console.WriteLine($"[{issueNumber}] Metadata file contains {elementCount} element(s)");
 
                 foreach (var element in doc.RootElement.EnumerateArray())
                 {
@@ -790,13 +987,58 @@ public sealed class RunTestsCommand
                         continue;
                     }
 
+                    Console.WriteLine($"[{issueNumber}] Found project_path in metadata: {projectPath}");
+
                     var fullPath = Path.Combine(
                         issueFolderPath,
                         projectPath.Replace('/', Path.DirectorySeparatorChar));
+                    
+                    Console.WriteLine($"[{issueNumber}] Constructed full path: {fullPath}");
+                    Console.WriteLine($"[{issueNumber}] Full path exists: {File.Exists(fullPath)}");
 
+                    // Try exact path first (File.Exists is case-insensitive on Windows, but case-sensitive on Linux)
                     if (File.Exists(fullPath))
                     {
                         projectFiles.Add(fullPath);
+                    }
+                    else
+                    {
+                        // If exact path doesn't exist, try case-insensitive search
+                        // This handles cases where metadata has different case than filesystem
+                        var directory = Path.GetDirectoryName(fullPath);
+                        var fileName = Path.GetFileName(fullPath);
+                        
+                        if (directory != null && Directory.Exists(directory))
+                        {
+                            // Search all files in the directory and match case-insensitively
+                            var actualFile = Directory.GetFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                                .FirstOrDefault(f => string.Equals(Path.GetFileName(f), fileName, StringComparison.OrdinalIgnoreCase));
+                            
+                            if (actualFile != null)
+                            {
+                                _logger.LogDebug(
+                                    "[{Issue}] Found project file via case-insensitive search: {Found} (metadata had: {Metadata})",
+                                    issueNumber,
+                                    actualFile,
+                                    projectPath);
+                                projectFiles.Add(actualFile);
+                            }
+                            else
+                            {
+                                _logger.LogWarning(
+                                    "[{Issue}] Project file from metadata not found: {Path} (searched in: {Directory})",
+                                    issueNumber,
+                                    fullPath,
+                                    directory);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "[{Issue}] Directory does not exist for project path: {Path}",
+                                issueNumber,
+                                fullPath);
+                        }
                     }
                 }
             }
@@ -811,7 +1053,36 @@ public sealed class RunTestsCommand
             return projectFiles.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
-        return _projectAnalyzer.FindProjectFiles(issueFolderPath);
+        // Fallback: search for project files in the issue folder
+        Console.WriteLine($"[{issueNumber}] Falling back to recursive project file search in: {issueFolderPath}");
+        
+        // First, do a direct search to see what's actually there
+        if (Directory.Exists(issueFolderPath))
+        {
+            var allCsprojFiles = Directory.GetFiles(issueFolderPath, "*.csproj", SearchOption.AllDirectories).ToList();
+            Console.WriteLine($"[{issueNumber}] Direct search found {allCsprojFiles.Count} .csproj file(s):");
+            foreach (var file in allCsprojFiles)
+            {
+                var relPath = Path.GetRelativePath(issueFolderPath, file);
+                Console.WriteLine($"[{issueNumber}]   - {relPath} (full: {file})");
+            }
+        }
+        
+        var foundFiles = _projectAnalyzer.FindProjectFiles(issueFolderPath);
+        if (foundFiles.Count > 0)
+        {
+            Console.WriteLine($"[{issueNumber}] FindProjectFiles returned {foundFiles.Count} project file(s):");
+            foreach (var file in foundFiles)
+            {
+                var relPath = Path.GetRelativePath(issueFolderPath, file);
+                Console.WriteLine($"[{issueNumber}]   - {relPath} (full: {file})");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"[{issueNumber}] FindProjectFiles returned 0 files");
+        }
+        return foundFiles;
     }
 
     private static string BuildConclusion(bool testSuccess, bool updateSuccess, string testOutput, string testError, string? failedStep)
@@ -1085,10 +1356,16 @@ public sealed class RunTestsCommand
     }
 
     /// <summary>
-    /// Creates IssueResult entries for skipped and not-compiling issues that were filtered out.
-    /// Preserves existing entries from results.json for issues with build/restore failures.
+    /// Previous behavior created IssueResult entries for skipped / not-compiling issues that were
+    /// filtered out, and refreshed some existing failures. This had the side-effect of changing
+    /// results for issues that were not actually part of the current run, which made partial
+    /// or filtered runs appear to \"touch\" every other issue (e.g. Success → NotRun in diffs).
+    ///
+    /// New behavior: do NOT synthesize or modify results for issues that were not run.
+    /// We rely on existing results.json entries for those issues and only update entries for
+    /// issues that were explicitly processed in this run.
     /// </summary>
-    private async Task<List<IssueResult>> CreateSkippedAndNotCompilingResultsAsync(
+    private Task<List<IssueResult>> CreateSkippedAndNotCompilingResultsAsync(
         Dictionary<int, string> allIssueFolders,
         Dictionary<int, string> issuesToRun,
         Dictionary<int, IssueMetadata> metadataDict,
@@ -1096,82 +1373,9 @@ public sealed class RunTestsCommand
         RunOptions options,
         CancellationToken cancellationToken)
     {
-        var results = new List<IssueResult>();
-        
-        // Find issues that were filtered out (not in issuesToRun but in allIssueFolders)
-        var filteredOutIssues = allIssueFolders
-            .Where(kvp => !issuesToRun.ContainsKey(kvp.Key))
-            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-        
-        if (filteredOutIssues.Count == 0)
-        {
-            return results;
-        }
-        
-        // Load existing results to preserve entries for issues with build/restore failures
-        var existingResults = await LoadPreviousResultsAsync(repositoryRoot, cancellationToken);
-        var existingResultsByIssue = existingResults
-            .GroupBy(r => r.Number)
-            .ToDictionary(g => g.Key, g => g.ToList());
-        
-        var now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        
-        foreach (var (issueNumber, folderPath) in filteredOutIssues)
-        {
-            // Skip if it's a skipped issue (those are handled in UpgradeFrameworks and should not be in results.json)
-            if (_markerService.ShouldSkipIssue(folderPath))
-            {
-                continue;
-            }
-            
-            // Check if this issue has existing results with build or restore failures
-            if (existingResultsByIssue.TryGetValue(issueNumber, out var issueResults))
-            {
-                // Check if any result for this issue has build or restore failure
-                var hasBuildOrRestoreFailure = issueResults.Any(r => 
-                    (r.BuildResult != null && r.BuildResult == StepResultStatus.Failed) || 
-                    (r.RestoreResult != null && r.RestoreResult == StepResultStatus.Failed));
-                
-                if (hasBuildOrRestoreFailure)
-                {
-                    // Preserve existing entries (they will be kept in results.json via SaveResultsAsync merge)
-                    // Update LastRun timestamp and Feed to current run values
-                    foreach (var existingResult in issueResults)
-                    {
-                        // Create a copy with updated LastRun timestamp and Feed
-                        var preservedResult = new IssueResult
-                        {
-                            Number = existingResult.Number,
-                            ProjectPath = existingResult.ProjectPath,
-                            ProjectStyle = existingResult.ProjectStyle,
-                            TargetFrameworks = existingResult.TargetFrameworks,
-                            Packages = existingResult.Packages,
-                            UpdateResult = existingResult.UpdateResult,
-                            UpdateOutput = existingResult.UpdateOutput,
-                            UpdateError = existingResult.UpdateError,
-                            RestoreResult = existingResult.RestoreResult,
-                            RestoreOutput = existingResult.RestoreOutput,
-                            RestoreError = existingResult.RestoreError,
-                            BuildResult = existingResult.BuildResult,
-                            BuildOutput = existingResult.BuildOutput,
-                            BuildError = existingResult.BuildError,
-                            TestResult = existingResult.TestResult,
-                            TestOutput = existingResult.TestOutput,
-                            TestError = existingResult.TestError,
-                            TestConclusion = existingResult.TestConclusion,
-                            RunSettings = existingResult.RunSettings,
-                            RunnerScripts = existingResult.RunnerScripts,
-                            Feed = options.Feed.ToString(), // Update feed to current feed
-                            RunnerExpectations = existingResult.RunnerExpectations,
-                            LastRun = now // Update timestamp to indicate we checked this issue in this run
-                        };
-                        results.Add(preservedResult);
-                    }
-                }
-            }
-        }
-        
-        return results;
+        // Intentionally return an empty list so that SaveResultsAsync only merges results
+        // for issues that were actually part of this run (or explicitly handled elsewhere).
+        return Task.FromResult(new List<IssueResult>());
     }
     
     /// <summary>
@@ -1615,42 +1819,6 @@ public sealed class RunTestsCommand
             _markerService);
 
         await resetCommand.ExecuteAsync(repositoryRoot, issueNumbers, verbosity, cancellationToken);
-
-        // Remove MyGet source if previous feed was Alpha
-        if (previousFeed == PackageFeed.Alpha.ToString())
-        {
-            await RemoveMyGetSourceAsync(cancellationToken);
-        }
-    }
-
-    private async Task RemoveMyGetSourceAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Check if MyGet source exists
-            var listResult = await _processExecutor.ExecuteAsync(
-                "dotnet",
-                "nuget list source",
-                Environment.CurrentDirectory,
-                30,
-                cancellationToken);
-
-            if (listResult.Output.Contains("nunit-myget", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation("Removing MyGet source");
-                await _processExecutor.ExecuteAsync(
-                    "dotnet",
-                    "nuget remove source nunit-myget",
-                    Environment.CurrentDirectory,
-                    30,
-                    cancellationToken);
-                Console.WriteLine("Removed MyGet source from nuget.config");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to remove MyGet source");
-        }
     }
 }
 

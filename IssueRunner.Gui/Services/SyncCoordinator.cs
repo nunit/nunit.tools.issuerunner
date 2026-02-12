@@ -374,7 +374,7 @@ public sealed class SyncCoordinator : ISyncCoordinator
             {
                 var cmd = _services.GetRequiredService<SyncToFoldersCommand>();
                 var cancellationToken = cancellationSource.Token;
-                var exitCode = await cmd.ExecuteAsync(_environmentService.Root, null, cancellationToken);
+                var exitCode = await cmd.ExecuteAsync(_environmentService.Root, null, updateInitialState: false, cancellationToken);
 
                 var output = logWriter.ToString();
                 if (!string.IsNullOrWhiteSpace(output))

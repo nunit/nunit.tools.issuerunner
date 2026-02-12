@@ -21,9 +21,10 @@
                             <x:Static Member="models:PackageFeed.Beta"/>
                             <x:Static Member="models:PackageFeed.Alpha"/>
                             <x:Static Member="models:PackageFeed.Local"/>
+                            <x:Static Member="models:PackageFeed.Initial"/>
                         </ComboBox.Items>
                     </ComboBox>
-                    <TextBlock Text="Stable: nuget.org stable only&#x0a;Beta: nuget.org with prerelease&#x0a;Alpha: nuget.org + MyGet with prerelease&#x0a;Local: C:\nuget with prerelease" 
+                    <TextBlock Text="Stable: nuget.org stable only&#x0a;Beta: nuget.org with prerelease&#x0a;Alpha: nuget.org + MyGet with prerelease&#x0a;Local: C:\nuget with prerelease&#x0a;Initial: nuget.org, packages at initial state" 
                               FontSize="11" 
                               Foreground="#666"
                               TextWrapping="Wrap"
