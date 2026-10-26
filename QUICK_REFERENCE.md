@@ -11,61 +11,61 @@ dotnet build -c Release
 ### Metadata Management
 ```bash
 # Sync from GitHub
-./IssueRunner metadata sync-from-github --root /repo/path
+./IssueRunner.Cli metadata sync-from-github --root /repo/path
 
 # Update issue folders
-./IssueRunner metadata sync-to-folders --root /repo/path
+./IssueRunner.Cli metadata sync-to-folders --root /repo/path
 ```
 
 ### Running Tests
 ```bash
 # All regression tests
-./IssueRunner run --scope RegressionOnly
+./IssueRunner.Cli run --scope Regression
 
 # All open issues
-./IssueRunner run --scope OpenOnly
+./IssueRunner.Cli run --scope Open
 
 # Specific issues
-./IssueRunner run --issues 228,343,1015
+./IssueRunner.Cli run --issues 228,343,1015
 
 # Linux - skip .NET Framework
-./IssueRunner run --skip-netfx
+./IssueRunner.Cli run --skip-netfx
 
 # Windows - only .NET Framework
-./IssueRunner run --only-netfx
+./IssueRunner.Cli run --only-netfx
 
 # Fast mode - NUnit packages only
-./IssueRunner run --nunit-only
+./IssueRunner.Cli run --nunit-only
 
 # Custom scripts only
-./IssueRunner run --execution-mode Custom
+./IssueRunner.Cli run --test-types Script
 ```
 
 ### Reporting
 ```bash
 # Generate report
-./IssueRunner report generate
+./IssueRunner.Cli report generate
 
 # Check regressions (CI gate)
-./IssueRunner report check-regressions
+./IssueRunner.Cli report check-regressions
 ```
 
 ### Multi-OS Merge
 ```bash
-./IssueRunner merge --linux ./linux-artifacts --windows ./windows-artifacts
+./IssueRunner.Cli merge --linux ./linux-artifacts --windows ./windows-artifacts
 ```
 
 ## Python to C# Command Map
 
 | Python | C# |
 |--------|-----|
-| `python scripts/update_central_from_github.py` | `./IssueRunner metadata sync-from-github` |
-| `python scripts/update_folders_from_central.py` | `./IssueRunner metadata sync-to-folders` |
-| `python scripts/run_tests.py --scope regression-only` | `./IssueRunner run --scope RegressionOnly` |
-| `python scripts/run_tests.py --skip-netfx` | `./IssueRunner run --skip-netfx` |
-| `python scripts/testreport.py` | `./IssueRunner report generate` |
-| `python scripts/check_regressions.py` | `./IssueRunner report check-regressions` |
-| `python scripts/merge_results.py --linux A --windows B` | `./IssueRunner merge --linux A --windows B` |
+| `python scripts/update_central_from_github.py` | `./IssueRunner.Cli metadata sync-from-github` |
+| `python scripts/update_folders_from_central.py` | `./IssueRunner.Cli metadata sync-to-folders` |
+| `python scripts/run_tests.py --scope regression-only` | `./IssueRunner.Cli run --scope Regression` |
+| `python scripts/run_tests.py --skip-netfx` | `./IssueRunner.Cli run --skip-netfx` |
+| `python scripts/testreport.py` | `./IssueRunner.Cli report generate` |
+| `python scripts/check_regressions.py` | `./IssueRunner.Cli report check-regressions` |
+| `python scripts/merge_results.py --linux A --windows B` | `./IssueRunner.Cli merge --linux A --windows B` |
 
 ## Environment Variables
 
@@ -93,7 +93,7 @@ Create in issue folder to skip:
 ## Performance Tips
 
 1. Use `--nunit-only` for faster package updates (~80% speedup)
-2. Use `--execution-mode Direct` to skip custom script issues
+2. Use `--test-types DotNet` to skip custom script issues
 3. Use `--issues` to test specific issues during development
 4. Split by platform (`--skip-netfx` / `--only-netfx`) for parallel CI
 
@@ -111,7 +111,7 @@ export GITHUB_TOKEN=ghp_yourtoken
 
 ### Timeout errors
 ```bash
-./IssueRunner run --timeout 1200  # Increase to 20 minutes
+./IssueRunner.Cli run --timeout 1200  # Increase to 20 minutes
 ```
 
 ### Tests not found
@@ -128,14 +128,14 @@ Check for marker files (ignore/explicit/wip) in issue folders
 ## Getting Help
 
 ```bash
-./IssueRunner --help
-./IssueRunner run --help
-./IssueRunner metadata --help
-./IssueRunner report --help
+./IssueRunner.Cli --help
+./IssueRunner.Cli run --help
+./IssueRunner.Cli metadata --help
+./IssueRunner.Cli report --help
 ```
 
 ## Documentation
 
-- **Tools/README.md** - Complete guide
-- **Tools/IMPLEMENTATION_SUMMARY.md** - Migration details
-- **Tools/FILES_CREATED.md** - File inventory
+- **README.md** - Complete guide
+- **IMPLEMENTATION_SUMMARY.md** - Migration details
+- **FILES_CREATED.md** - File inventory
