@@ -59,11 +59,92 @@ public sealed class TestExecutionService : ITestExecutionService
     {
         var scripts = new List<string>();
 
+        if (!Directory.Exists(issueFolderPath))
+        {
+            Console.WriteLine($"ERROR: Issue folder does not exist: {issueFolderPath}");
+            return scripts;
+        }
+
         var isWindows = OperatingSystem.IsWindows();
         var extension = isWindows ? ".cmd" : ".sh";
+        var pattern = $"run_*{extension}";
 
-        var files = Directory.GetFiles(issueFolderPath, $"run_*{extension}");
-        scripts.AddRange(files);
+        Console.WriteLine($"Searching for custom scripts in: {issueFolderPath}");
+        Console.WriteLine($"Pattern: {pattern} (Windows={isWindows})");
+
+        try
+        {
+            // List all files in the directory for debugging
+            var dirFiles = Directory.GetFiles(issueFolderPath, "*", SearchOption.TopDirectoryOnly);
+            Console.WriteLine($"Found {dirFiles.Length} file(s) in directory:");
+            foreach (var file in dirFiles.Take(20)) // Limit to first 20 to avoid spam
+            {
+                Console.WriteLine($"  - {Path.GetFileName(file)}");
+            }
+            if (dirFiles.Length > 20)
+            {
+                Console.WriteLine($"  ... and {dirFiles.Length - 20} more files");
+            }
+            
+            var files = Directory.GetFiles(issueFolderPath, pattern, SearchOption.TopDirectoryOnly);
+            scripts.AddRange(files);
+            
+            if (scripts.Count > 0)
+            {
+                Console.WriteLine($"Found {scripts.Count} custom script(s) matching pattern '{pattern}':");
+                foreach (var script in scripts)
+                {
+                    Console.WriteLine($"  - {script}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"No scripts found matching pattern '{pattern}'");
+                // Also try case-insensitive matching as a fallback (for cross-platform compatibility)
+                var matchingFiles = dirFiles.Where(f =>
+                {
+                    var fileName = Path.GetFileName(f);
+                    return fileName.StartsWith("run_", StringComparison.OrdinalIgnoreCase) &&
+                           fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
+                }).ToList();
+                
+                if (matchingFiles.Count > 0)
+                {
+                    Console.WriteLine($"Found {matchingFiles.Count} custom script(s) via case-insensitive search:");
+                    foreach (var file in matchingFiles)
+                    {
+                        Console.WriteLine($"  - {file}");
+                    }
+                    scripts.AddRange(matchingFiles);
+                }
+                else
+                {
+                    // Log all files that start with "run" for debugging
+                    var runFiles = dirFiles.Where(f =>
+                    {
+                        var fileName = Path.GetFileName(f);
+                        return fileName.StartsWith("run", StringComparison.OrdinalIgnoreCase);
+                    }).ToList();
+                    
+                    if (runFiles.Count > 0)
+                    {
+                        Console.WriteLine($"Found {runFiles.Count} file(s) starting with 'run' but not matching pattern '{pattern}':");
+                        foreach (var file in runFiles)
+                        {
+                            Console.WriteLine($"  - {Path.GetFileName(file)}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"No files starting with 'run' found in {issueFolderPath}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error searching for custom scripts in {FolderPath}", issueFolderPath);
+        }
 
         return scripts;
     }

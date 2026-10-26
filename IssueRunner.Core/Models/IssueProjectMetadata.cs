@@ -1,7 +1,7 @@
 namespace IssueRunner.Models;
 
 /// <summary>
-/// Represents per-issue project metadata combining GitHub info and project details.
+/// Represents per-issue metadata based purely on GitHub information.
 /// </summary>
 public sealed class IssueProjectMetadata
 {
@@ -41,23 +41,9 @@ public sealed class IssueProjectMetadata
     [JsonPropertyName("url")]
     public required string Url { get; init; }
 
-    /// <summary>
-    /// Gets or sets the relative path to the project file.
-    /// </summary>
-    [JsonPropertyName("project_path")]
-    public required string ProjectPath { get; init; }
-
-    /// <summary>
-    /// Gets or sets the target frameworks.
-    /// </summary>
-    [JsonPropertyName("target_frameworks")]
-    public required List<string> TargetFrameworks { get; init; }
-
-    /// <summary>
-    /// Gets or sets the package references.
-    /// </summary>
-    [JsonPropertyName("packages")]
-    public required List<PackageInfo> Packages { get; init; }
+    // Note: Project paths, target frameworks, and package references are
+    // intentionally not included here. They are stored in issue_initialstate.json
+    // instead, so that issue_metadata.json remains GitHub-only.
 }
 
 

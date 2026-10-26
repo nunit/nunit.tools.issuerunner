@@ -80,10 +80,12 @@ internal static class Program
         services.AddSingleton<ITestExecutionService, TestExecutionService>();
         services.AddSingleton<IEnvironmentService, EnvironmentService>();
         services.AddSingleton<IMarkerService, MarkerService>();
+        services.AddSingleton<IInitialStateService, InitialStateService>();
         services.AddSingleton<ReportGeneratorService>();
 
         services.AddTransient<SyncFromGitHubCommand>();
         services.AddTransient<SyncToFoldersCommand>();
+        services.AddTransient<UpdateNewIssuesCommand>();
         services.AddTransient<RunTestsCommand>();
         services.AddTransient<ResetPackagesCommand>();
         services.AddTransient<GenerateReportCommand>();
@@ -105,6 +107,7 @@ internal static class Program
         rootCommand.AddGlobalOption(rootOption);
 
         rootCommand.AddCommand(BuildMetadataCommand(services));
+        rootCommand.AddCommand(BuildUpdateNewIssuesCommand(services));
         rootCommand.AddCommand(BuildRunCommand(services));
         rootCommand.AddCommand(BuildResetCommand(services));
         rootCommand.AddCommand(BuildReportCommand(services));
@@ -125,18 +128,46 @@ internal static class Program
         });
 
         var syncToFolders = new Command("sync-to-folders", "Sync metadata from central file to issue folders");
-        syncToFolders.SetHandler(async () =>
+        var updateInitialStateOption = new Option<bool>(
+            "--update-initial-state",
+            () => false,
+            "Also (re)write issue_initialstate.json from current projects (e.g. when new projects were added)");
+        syncToFolders.AddOption(updateInitialStateOption);
+        syncToFolders.SetHandler(async (updateInitialState) =>
         {
             var env = services.GetRequiredService<IEnvironmentService>();
             var cmd = services.GetRequiredService<SyncToFoldersCommand>();
-            await cmd.ExecuteAsync(env.Root, null, CancellationToken.None);
-
-        });
+            await cmd.ExecuteAsync(env.Root, null, updateInitialState, CancellationToken.None);
+        }, updateInitialStateOption);
 
         metadataCommand.AddCommand(syncFromGitHub);
         metadataCommand.AddCommand(syncToFolders);
 
         return metadataCommand;
+    }
+
+    private static Command BuildUpdateNewIssuesCommand(IServiceProvider services)
+    {
+        var cmd = new Command("update-new-issues", "Ensure issue_initialstate.json exists and covers all csproj files (git/markdown/current)");
+        var issuesOption = new Option<string?>(
+            "--issues",
+            "Comma-separated issue numbers (null means all)");
+        var forceOption = new Option<bool>(
+            "--force",
+            () => false,
+            "Rebuild initial state even when JSON exists");
+        cmd.AddOption(issuesOption);
+        cmd.AddOption(forceOption);
+        cmd.SetHandler(async (issues, force) =>
+        {
+            var env = services.GetRequiredService<IEnvironmentService>();
+            var updateCmd = services.GetRequiredService<UpdateNewIssuesCommand>();
+            var issueNumbers = string.IsNullOrWhiteSpace(issues)
+                ? null
+                : issues.Split(',').Select(int.Parse).ToList();
+            await updateCmd.ExecuteAsync(env.Root, issueNumbers, force, CancellationToken.None);
+        }, issuesOption, forceOption);
+        return cmd;
     }
 
     private static Command BuildRunCommand(IServiceProvider services)

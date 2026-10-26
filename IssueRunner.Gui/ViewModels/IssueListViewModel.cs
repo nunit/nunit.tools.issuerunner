@@ -28,6 +28,7 @@ public class IssueListViewModel : ViewModelBase
     private Func<Task>? _showOptionsCallback;
     private Func<List<int>, Task>? _resetPackagesCallback;
     private Func<Task>? _reloadIssuesCallback;
+    private ReactiveCommand<Unit, Unit>? _updateNewIssuesCommand;
     private string _repositoryBaseUrl = "";
     private Dictionary<string, ChangeType> _issueChanges = new();
     private IssueViewMode _viewMode = IssueViewMode.Current;
@@ -95,6 +96,12 @@ public class IssueListViewModel : ViewModelBase
     {
         get;
         set => SetProperty(ref field, value);
+    }
+
+    public ReactiveCommand<Unit, Unit>? UpdateNewIssuesCommand
+    {
+        get => _updateNewIssuesCommand;
+        set => SetProperty(ref _updateNewIssuesCommand, value);
     }
 
     public ReadOnlyObservableCollection<IssueListItem> AllIssues { get; }
@@ -231,6 +238,11 @@ public class IssueListViewModel : ViewModelBase
     public void SetSyncFromGitHubCommand(ReactiveCommand<Unit, Unit> command)
     {
         SyncFromGitHubCommand = command;
+    }
+
+    public void SetUpdateNewIssuesCommand(ReactiveCommand<Unit, Unit> command)
+    {
+        UpdateNewIssuesCommand = command;
     }
 
     public void SetResetPackagesCallback(Func<List<int>, Task> callback)

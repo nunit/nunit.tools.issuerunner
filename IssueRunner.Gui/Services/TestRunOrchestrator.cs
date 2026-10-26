@@ -11,6 +11,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +31,14 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
     private CancellationTokenSource? _cancellationSource;
     private RunTestsStatusViewModel? _statusViewModel;
     private RunTestsStatusDialog? _statusDialog;
+
+    // In-memory tracking of current and baseline results for Set Baseline behavior,
+    // keyed by issue number so we can update per-issue subsets cleanly.
+    private readonly Dictionary<int, List<IssueResult>> _currentResultsByIssue = new();
+    private readonly Dictionary<int, List<IssueResult>> _baselineResultsByIssue = new();
+    private HashSet<int> _lastRunIssueNumbers = new();
+    private bool _hasPendingRunForBaseline;
+    private bool _baselineResultsLoaded;
 
     public TestRunOrchestrator(
         IServiceProvider services,
@@ -326,6 +336,9 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
                 log($"Test run completed with errors (exit code: {exitCode}).");
             }
 
+            // Update in-memory current results and last-run subset for Set Baseline
+            UpdateResultsStateAfterRun(options, log);
+
             return true;
         }
         catch (OperationCanceledException)
@@ -385,25 +398,74 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
                 return;
             }
 
+            if (!_hasPendingRunForBaseline)
+            {
+                log("Set Baseline is only available after a completed test run.");
+                return;
+            }
+
             var dataDir = _environmentService.GetDataDirectory(_environmentService.Root);
             var resultsPath = Path.Combine(dataDir, "results.json");
             var baselineResultsPath = Path.Combine(dataDir, "results-baseline.json");
             var currentPackagesPath = Path.Combine(dataDir, "nunit-packages-current.json");
             var baselinePackagesPath = Path.Combine(dataDir, "nunit-packages-baseline.json");
 
-            if (!File.Exists(resultsPath))
+            if (!File.Exists(resultsPath) || _currentResultsByIssue.Count == 0)
             {
                 log("No test results to set as baseline.");
                 return;
             }
 
-            // Copy current results.json to results-baseline.json
-            File.Copy(resultsPath, baselineResultsPath, overwrite: true);
+            // Ensure baseline dictionary is loaded from file (or empty if file doesn't exist)
+            EnsureBaselineResultsLoaded(baselineResultsPath, log);
 
-            // Copy current package versions to baseline
+            // If we have a subset of issues from the last run, only update those.
+            // Otherwise, treat this as an "all issues" baseline update.
+            if (_lastRunIssueNumbers.Count > 0)
+            {
+                foreach (var issueNumber in _lastRunIssueNumbers)
+                {
+                    if (_currentResultsByIssue.TryGetValue(issueNumber, out var currentResults))
+                    {
+                        _baselineResultsByIssue[issueNumber] = CloneIssueResults(currentResults);
+                    }
+                }
+            }
+            else
+            {
+                _baselineResultsByIssue.Clear();
+                foreach (var kvp in _currentResultsByIssue)
+                {
+                    _baselineResultsByIssue[kvp.Key] = CloneIssueResults(kvp.Value);
+                }
+            }
+
+            // Persist baseline results to results-baseline.json
+            var allBaselineResults = _baselineResultsByIssue.Values.SelectMany(x => x).ToList();
+            var jsonOptions = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            };
+            var baselineJson = JsonSerializer.Serialize(allBaselineResults, jsonOptions);
+            File.WriteAllText(baselineResultsPath, baselineJson);
+
+            // Copy current package versions to baseline via serialization
             if (File.Exists(currentPackagesPath))
             {
-                File.Copy(currentPackagesPath, baselinePackagesPath, overwrite: true);
+                try
+                {
+                    var pkgJson = File.ReadAllText(currentPackagesPath);
+                    var versions = JsonSerializer.Deserialize<NUnitPackageVersions>(pkgJson);
+                    if (versions != null)
+                    {
+                        var baselinePackagesJson = JsonSerializer.Serialize(versions);
+                        File.WriteAllText(baselinePackagesPath, baselinePackagesJson);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log($"Warning: Failed to update baseline package versions: {ex.Message}");
+                }
             }
 
             log("Baseline set successfully.");
@@ -416,6 +478,10 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
             {
                 _statusViewModel.CanSetBaseline = false; // Already set
             }
+
+            // Baseline has been consumed; require a new run before it can be set again
+            _hasPendingRunForBaseline = false;
+            _lastRunIssueNumbers.Clear();
         }
         catch (Exception ex)
         {
@@ -440,6 +506,115 @@ public sealed class TestRunOrchestrator : ITestRunOrchestrator
             return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Updates in-memory current results and last-run subset information after a test run completes.
+    /// </summary>
+    private void UpdateResultsStateAfterRun(RunOptions options, Action<string> log)
+    {
+        try
+        {
+            var dataDir = _environmentService.GetDataDirectory(_environmentService.Root);
+            var resultsPath = Path.Combine(dataDir, "results.json");
+
+            if (!File.Exists(resultsPath))
+            {
+                _currentResultsByIssue.Clear();
+                _lastRunIssueNumbers = new HashSet<int>();
+                _hasPendingRunForBaseline = false;
+                return;
+            }
+
+            var json = File.ReadAllText(resultsPath);
+            var jsonOptions = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            };
+            var results = JsonSerializer.Deserialize<List<IssueResult>>(json, jsonOptions) ?? new List<IssueResult>();
+
+            _currentResultsByIssue.Clear();
+            foreach (var result in results)
+            {
+                if (!_currentResultsByIssue.TryGetValue(result.Number, out var list))
+                {
+                    list = new List<IssueResult>();
+                    _currentResultsByIssue[result.Number] = list;
+                }
+                list.Add(result);
+            }
+
+            // Track the subset of issues that participated in the last run.
+            // When IssueNumbers is null or empty, treat it as "all issues".
+            if (options.IssueNumbers != null && options.IssueNumbers.Count > 0)
+            {
+                _lastRunIssueNumbers = new HashSet<int>(options.IssueNumbers);
+            }
+            else
+            {
+                _lastRunIssueNumbers = new HashSet<int>();
+            }
+
+            _hasPendingRunForBaseline = _currentResultsByIssue.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            log($"Warning: Failed to track results for baseline: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Ensures the in-memory baseline dictionary is populated from results-baseline.json when it exists.
+    /// If the file does not exist, the baseline dictionary remains empty.
+    /// </summary>
+    private void EnsureBaselineResultsLoaded(string baselineResultsPath, Action<string> log)
+    {
+        if (_baselineResultsLoaded)
+        {
+            return;
+        }
+
+        _baselineResultsByIssue.Clear();
+
+        if (!File.Exists(baselineResultsPath))
+        {
+            _baselineResultsLoaded = true;
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(baselineResultsPath);
+            var jsonOptions = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() }
+            };
+            var results = JsonSerializer.Deserialize<List<IssueResult>>(json, jsonOptions) ?? new List<IssueResult>();
+
+            foreach (var result in results)
+            {
+                if (!_baselineResultsByIssue.TryGetValue(result.Number, out var list))
+                {
+                    list = new List<IssueResult>();
+                    _baselineResultsByIssue[result.Number] = list;
+                }
+                list.Add(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            log($"Warning: Failed to load existing baseline results: {ex.Message}");
+            _baselineResultsByIssue.Clear();
+        }
+
+        _baselineResultsLoaded = true;
+    }
+
+    private static List<IssueResult> CloneIssueResults(List<IssueResult> results)
+    {
+        // IssueResult is immutable (init-only properties), so we can safely reuse instances.
+        // We still copy the list to avoid accidental list sharing.
+        return new List<IssueResult>(results);
     }
 
     private void UpdateStatusFromLog(string logLine)

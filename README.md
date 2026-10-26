@@ -32,7 +32,7 @@ Run tests from the command line:
 Tools\run-tests.cmd --issues 228,343
 
 # Linux/macOS
-./Tools/run-tests.sh --issues 228,343
+./run-tests.sh --issues 228,343
 ```
 
 ## GUI Application
@@ -211,10 +211,10 @@ cd /path/to/your/test/repository
 
 ```bash
 cd /path/to/your/test/repository
-../nunit3-vs-adapter.issues/Tools/run-tests.sh [options]
-../nunit3-vs-adapter.issues/Tools/generate-report.sh
-../nunit3-vs-adapter.issues/Tools/sync-from-github.sh
-../nunit3-vs-adapter.issues/Tools/sync-to-folders.sh
+../nunit.tools.issuerunner/run-tests.sh [options]
+../nunit.tools.issuerunner/generate-report.sh
+../nunit.tools.issuerunner/sync-from-github.sh
+../nunit.tools.issuerunner/sync-to-folders.sh
 ```
 
 ### Command Structure
@@ -237,27 +237,27 @@ issuerunner
 Run IssueRunner directly:
 
 ```bash
-cd Tools/IssueRunner/bin/Release/net10.0
-./IssueRunner run [options]
+cd IssueRunner.Cli/bin/Release/net10.0
+./IssueRunner.Cli run [options]
 ```
 
 ### Basic Examples
 
 ```bash
 # Run all tests
-./IssueRunner run
+./IssueRunner.Cli run
 
 # Run specific issues
-./IssueRunner run --issues 228,343,1015
+./IssueRunner.Cli run --issues 228,343,1015
 
 # Run all regression tests (closed issues)
-./IssueRunner run --scope RegressionOnly
+./IssueRunner.Cli run --scope Regression
 
 # Run only open issues
-./IssueRunner run --scope OpenOnly
+./IssueRunner.Cli run --scope Open
 
 # Skip .NET Framework tests (useful on Linux)
-./IssueRunner run --skip-netfx
+./IssueRunner.Cli run --skip-netfx
 ```
 
 ## CLI Reference
@@ -273,7 +273,7 @@ cd Tools/IssueRunner/bin/Release/net10.0
 | `--skip-netfx` | Skip .NET Framework tests |
 | `--only-netfx` | Run only .NET Framework tests |
 | `--nunit-only` | Update only NUnit packages (faster) |
-| `--execution-mode <mode>` | Filter by execution method (default: All) |
+| `--test-types <type>` | Filter by how an issue is run: All (default), DotNet or Script |
 | `--feed <feed>` | Package feed (default: Stable) |
 | `--verbosity <level>` | Logging verbosity (Normal or Verbose) |
 | `--rerun-failed` | Rerun only failed tests from test-fails.json |
@@ -283,10 +283,10 @@ cd Tools/IssueRunner/bin/Release/net10.0
 | Scope | Description |
 | ----- | ----------- |
 | `All` | Run all issues (default) |
-| `New` | Run only issues that haven't been tested yet (no entry in results.json or test_result is null/empty) |
-| `NewAndFailed` | Run issues that are new OR previously failed |
-| `RegressionOnly` | Run only closed issues (regression tests) |
-| `OpenOnly` | Run only open issues |
+| `Regression` | Run only closed issues (regression tests) |
+| `Open` | Run only open issues |
+
+To run the issues that failed last time, use `--rerun-failed`.
 
 ### Package Feed Options
 
@@ -297,13 +297,13 @@ cd Tools/IssueRunner/bin/Release/net10.0
 | `Alpha` | nuget.org + MyGet feed with prerelease packages enabled |
 | `Local` | nuget.org + C:\nuget feed with prerelease packages enabled |
 
-### Execution Mode Filter
+### Test Types Filter
 
-| Mode | Description |
+| Type | Description |
 | ---- | ----------- |
-| `All` | Run all issues regardless of execution method (default) |
-| `Direct` | Run only issues that use direct `dotnet test` execution |
-| `Custom` | Run only issues that use custom scripts |
+| `All` | Run all issues regardless of how they are run (default) |
+| `DotNet` | Run only issues that use direct `dotnet test` execution |
+| `Script` | Run only issues that use custom scripts |
 
 ### Test Result Files
 
@@ -331,17 +331,17 @@ Generate a test report from your test results:
 
 ```cmd
 # Windows
-.\Tools\generate-report.cmd
+.\generate-report.cmd
 
 # Linux/macOS
-./Tools/generate-report.sh
+./generate-report.sh
 ```
 
 **Or run IssueRunner directly:**
 
 ```bash
-cd Tools/IssueRunner/bin/Release/net10.0
-./IssueRunner report generate
+cd IssueRunner.Cli/bin/Release/net10.0
+./IssueRunner.Cli report generate
 ```
 
 The report will be generated as `TestReport.md` in the repository root. It includes:
@@ -376,7 +376,7 @@ IssueRunner can test issues in any repository, not just nunit3-vs-adapter.issues
 
    # Linux/macOS
    export ISSUERUNNER_ROOT=/home/user/repos/nunit.issues
-   ../nunit3-vs-adapter.issues/Tools/run-tests.sh --issues 1
+   ../nunit.tools.issuerunner/run-tests.sh --issues 1
    ```
 
 3. **Use --root parameter explicitly**:
@@ -449,7 +449,8 @@ You can add expectation metadata as comments in the first 10 lines of your scrip
 | `EXPECT_FAIL=N` | Expected number of failing tests |
 | `EXPECT_SKIP=N` | Expected number of skipped tests |
 
-If the actual results don't match the expectations, the test run will be marked as failed.
+These comments are documentation only: IssueRunner does not read them, it only checks each script's exit code.
+A script that must catch a wrong number of tests has to check the count itself and exit with a non-zero code.
 
 **Example with expectations:**
 
@@ -471,59 +472,56 @@ The `reset` command restores projects to their original state from metadata:
 **Usage:**
 
 ```bash
-./IssueRunner reset                    # Reset all issues
-./IssueRunner reset --issues 228,711   # Reset specific issues
+./IssueRunner.Cli reset                    # Reset all issues
+./IssueRunner.Cli reset --issues 228,711   # Reset specific issues
 ```
 
 **Wrapper scripts:**
 
 ```cmd
 # Windows
-.\Tools\reset-packages.cmd
+.\reset-packages.cmd
 
 # Linux/macOS
-./Tools/reset-packages.sh
+./reset-packages.sh
 ```
 
 ### Advanced CLI Examples
 
 ```bash
-# Run new issues and previously failed tests
-./IssueRunner run --scope NewAndFailed
-
 # Rerun only failed tests from test-fails.json
-./IssueRunner run --rerun-failed
+./IssueRunner.Cli run --rerun-failed
 
 # Run only custom script tests
-./IssueRunner run --execution-mode Custom
+./IssueRunner.Cli run --test-types Script
 
 # Test with beta/prerelease packages
-./IssueRunner run --feed Beta --issues 1039
+./IssueRunner.Cli run --feed Beta --issues 1039
 
 # Test with alpha packages from MyGet
-./IssueRunner run --feed Alpha --issues 228
+./IssueRunner.Cli run --feed Alpha --issues 228
 
 # Test with local packages from C:\nuget
-./IssueRunner run --feed Local --issues 228
+./IssueRunner.Cli run --feed Local --issues 228
 ```
 
 ### Other Commands
 
 ```bash
 # Sync metadata from GitHub (or use sync-from-github.cmd/sh)
-./IssueRunner metadata sync-from-github
+./IssueRunner.Cli metadata sync-from-github
 
 # Distribute metadata to issue folders (or use sync-to-folders.cmd/sh)
-./IssueRunner metadata sync-to-folders
+./IssueRunner.Cli metadata sync-to-folders
 
 # Generate test report
-./IssueRunner report generate
+./IssueRunner.Cli report generate
 
 # Check for regression failures (CI)
-./IssueRunner report check-regressions
+./IssueRunner.Cli report check-regressions
 
 # Merge results from multiple runs
-./IssueRunner merge --linux <path> --windows <path>
+./IssueRunner.Cli merge --linux <path> --windows <path>
 ```
 
 ## Maintenance
@@ -544,34 +542,34 @@ cd C:\repos\nunit\nunit.issues
 
 ```bash
 cd /home/user/repos/nunit.issues
-../nunit3-vs-adapter.issues/Tools/sync-from-github.sh
-../nunit3-vs-adapter.issues/Tools/sync-to-folders.sh
+../nunit.tools.issuerunner/sync-from-github.sh
+../nunit.tools.issuerunner/sync-to-folders.sh
 ```
 
 Or run IssueRunner directly:
 
 ```bash
-cd Tools/IssueRunner/bin/Release/net10.0
+cd IssueRunner.Cli/bin/Release/net10.0
 
 # Sync from GitHub
-./IssueRunner metadata sync-from-github --root /path/to/repo
+./IssueRunner.Cli metadata sync-from-github --root /path/to/repo
 
 # Distribute to folders
-./IssueRunner metadata sync-to-folders --root /path/to/repo
+./IssueRunner.Cli metadata sync-to-folders --root /path/to/repo
 ```
 
 ### What the Sync Commands Do
 
-1. **sync-from-github**: Fetches current issue metadata from GitHub API and updates `Tools/issues_metadata.json`
+1. **sync-from-github**: Fetches current issue metadata from GitHub API and updates `.nunit/IssueRunner/issues_metadata.json`
    - Requires `GITHUB_TOKEN` environment variable for higher rate limits
-   - Reads repository configuration from `Tools/repository.json`
+   - Reads repository configuration from `.nunit/IssueRunner/repository.json`
 
-2. **sync-to-folders**: Reads from `Tools/issues_metadata.json` and creates/updates `issue_metadata.json` in each `Issue*` folder
+2. **sync-to-folders**: Reads from `.nunit/IssueRunner/issues_metadata.json` and creates/updates `issue_metadata.json` in each `Issue*` folder
    - Includes project details (csproj files, frameworks, packages)
 
 ### Repository Configuration
 
-Create a `Tools/repository.json` file in your target repository to specify which GitHub repository to sync from:
+Create a `.nunit/IssueRunner/repository.json` file in your target repository to specify which GitHub repository to sync from:
 
 ```json
 {

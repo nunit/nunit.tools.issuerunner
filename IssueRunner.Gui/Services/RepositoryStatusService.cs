@@ -203,7 +203,20 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
 
             // Load package versions
             baselinePackages = LoadPackageVersions(Path.Combine(dataDir, "nunit-packages-baseline.json")) ?? "Not set";
-            currentPackages = LoadPackageVersions(Path.Combine(dataDir, "nunit-packages-current.json")) ?? "Not set";
+
+            // Determine feeds present in current results (from results.json)
+            var feedsInResults = currentResults
+                .Select(r => r.Feed)
+                .Where(f => !string.IsNullOrWhiteSpace(f))
+                .Select(f => f!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // Load current NUnit package versions (last run feed + packages)
+            var currentPackagesPath = Path.Combine(dataDir, "nunit-packages-current.json");
+            var currentVersions = LoadCurrentPackageVersions(currentPackagesPath);
+
+            currentPackages = BuildCurrentPackagesDisplay(currentVersions, feedsInResults);
 
             // Count issues needing sync (missing issue_initialstate.json)
             issuesNeedingSync = folders.Count(folder =>
@@ -316,6 +329,82 @@ public sealed class RepositoryStatusService : IRepositoryStatusService
     private static string FormatPackageVersions(Dictionary<string, string> packages)
     {
         return string.Join(", ", packages.Select(kvp => $"{kvp.Key}: {kvp.Value}"));
+    }
+
+    /// <summary>
+    /// Loads the current NUnit package versions (including feed and timestamp) from the given path.
+    /// Returns null if the file does not exist or cannot be deserialized.
+    /// </summary>
+    private static NUnitPackageVersions? LoadCurrentPackageVersions(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var versions = JsonSerializer.Deserialize<NUnitPackageVersions>(json);
+            return versions;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Builds the display string for \"NUnit Packages - Current\" using the last run package versions
+    /// and the feeds observed in results.json. Highlights mixed-feed scenarios.
+    /// </summary>
+    private static string BuildCurrentPackagesDisplay(NUnitPackageVersions? versions, List<string> feedsInResults)
+    {
+        // Normalize feed list from results.json
+        var normalizedFeeds = feedsInResults
+            .Where(f => !string.IsNullOrWhiteSpace(f))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // No versions file and no feed info from results
+        if (versions == null)
+        {
+            if (normalizedFeeds.Count == 0)
+            {
+                return "Not set";
+            }
+
+            if (normalizedFeeds.Count == 1)
+            {
+                return $"Feed: {normalizedFeeds[0]} (no package snapshot)";
+            }
+
+            return $"Feed: Mixed (feeds seen in results: {string.Join(", ", normalizedFeeds)})";
+        }
+
+        var lastRunFeed = string.IsNullOrWhiteSpace(versions.Feed) ? "Unknown" : versions.Feed;
+        var packagesText = versions.Packages is { Count: > 0 }
+            ? FormatPackageVersions(versions.Packages)
+            : "Not set";
+
+        // Single-feed case: either no explicit feeds in results, or all entries use the last run feed
+        var otherFeeds = normalizedFeeds
+            .Where(f => !string.Equals(f, lastRunFeed, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (normalizedFeeds.Count == 0 || (normalizedFeeds.Count == 1 && otherFeeds.Count == 0))
+        {
+            return $"Feed: {lastRunFeed} — {packagesText}";
+        }
+
+        // Mixed feeds: highlight last run feed/packages and list others from results
+        if (otherFeeds.Count == 0)
+        {
+            // Last run feed not present in results.json; still indicate both perspectives
+            return $"Feed: Mixed (last run: {lastRunFeed} — {packagesText}; feeds seen in results: {string.Join(", ", normalizedFeeds)})";
+        }
+
+        return $"Feed: Mixed (last run: {lastRunFeed} — {packagesText}; others: {string.Join(", ", otherFeeds)})";
     }
 }
 

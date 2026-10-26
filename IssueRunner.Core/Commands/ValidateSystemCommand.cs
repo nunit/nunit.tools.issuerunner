@@ -274,6 +274,73 @@ public sealed class ValidateSystemCommand
 
             Console.WriteLine();
 
+            // Step 5: Validate per-issue initial state files
+            Console.WriteLine("Step 5: Validating per-issue initial state files...");
+            try
+            {
+                var initialStateOkCount = 0;
+                var initialStateConversionIssues = new List<int>();
+
+                // Issue folders live directly under the repository root and are named like Issue343, Issue1015X, etc.
+                var issueFolders = Directory.GetDirectories(repositoryRoot, "Issue*", SearchOption.TopDirectoryOnly);
+
+                foreach (var issueFolder in issueFolders)
+                {
+                    var folderName = Path.GetFileName(issueFolder.TrimEnd(
+                        Path.DirectorySeparatorChar,
+                        Path.AltDirectorySeparatorChar));
+
+                    // Extract issue number from folder name (e.g. Issue343X -> 343)
+                    var match = System.Text.RegularExpressions.Regex.Match(folderName, @"^Issue(\d+)");
+                    if (!match.Success || !int.TryParse(match.Groups[1].Value, out var issueNumber) || issueNumber < 1)
+                    {
+                        continue;
+                    }
+
+                    var initialStateJsonPath = Path.Combine(issueFolder, "issue_initialstate.json");
+                    var initialStateReadmePath = Path.Combine(issueFolder, "readme.initialstate.md");
+
+                    if (File.Exists(initialStateJsonPath))
+                    {
+                        initialStateOkCount++;
+                        continue;
+                    }
+
+                    // If the JSON file is missing but the legacy readme.initialstate.md exists,
+                    // it means the conversion from markdown to JSON likely failed.
+                    if (File.Exists(initialStateReadmePath))
+                    {
+                        Console.WriteLine(
+                            $"  ERROR: Issue {issueNumber} in folder '{folderName}': " +
+                            $"issue_initialstate.json is missing but readme.initialstate.md exists. " +
+                            "Initial state conversion likely failed.");
+                        hasErrors = true;
+                        initialStateConversionIssues.Add(issueNumber);
+                    }
+                }
+
+                if (initialStateConversionIssues.Count == 0)
+                {
+                    Console.WriteLine(
+                        $"  OK: issue_initialstate.json is present for {initialStateOkCount} issue(s); " +
+                        "no conversion failures detected.");
+                }
+                else
+                {
+                    var issuesText = string.Join(", ", initialStateConversionIssues.OrderBy(n => n));
+                    Console.WriteLine(
+                        $"  Summary: {initialStateConversionIssues.Count} issue(s) with missing issue_initialstate.json " +
+                        $"but readme.initialstate.md present: {issuesText}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  ERROR: Failed while validating initial state files: {ex.Message}");
+                hasErrors = true;
+            }
+
+            Console.WriteLine();
+
             if (hasErrors)
             {
                 Console.WriteLine("Validation completed with ERRORS. Please review the errors above.");

@@ -15,7 +15,6 @@ public class RunTestsCommandTests
     private ITestExecutionService? _testExecution;
     private ILogger<RunTestsCommand>? _logger;
     private ILoggerFactory? _loggerFactory;
-    private IProcessExecutor? _processExecutor;
     private RunTestsCommand? _command;
     private IEnvironmentService? _environmentService;
     private INuGetPackageVersionService? _nugetVersions;
@@ -31,7 +30,6 @@ public class RunTestsCommandTests
         _testExecution = Substitute.For<ITestExecutionService>();
         _logger = Substitute.For<ILogger<RunTestsCommand>>();
         _loggerFactory = Substitute.For<ILoggerFactory>();
-        _processExecutor = Substitute.For<IProcessExecutor>();
         _environmentService = Substitute.For<IEnvironmentService>();
         _nugetVersions = Substitute.For<INuGetPackageVersionService>();
         _markerService = Substitute.For<IMarkerService>();
@@ -44,7 +42,6 @@ public class RunTestsCommandTests
             _testExecution,
             _logger,
             _loggerFactory,
-            _processExecutor,
             _nugetVersions,
             _environmentService,
             _markerService);
@@ -134,6 +131,26 @@ public class RunTestsCommandTests
         var changed = IsChanged(emptyResults, PackageFeed.Stable);
 
         Assert.That(changed, Is.False);
+    }
+
+    [Test]
+    public void CheckFeedChanged_WithInitialFeed_WhenPreviousWasStable_ReturnsTrue()
+    {
+        var results = new List<IssueResult>
+        {
+            new()
+            {
+                Number = 1,
+                ProjectPath = "test.csproj",
+                TargetFrameworks = ["net10.0"],
+                Packages = [],
+                Feed = "Stable"
+            }
+        };
+
+        var changed = IsChanged(results, PackageFeed.Initial);
+
+        Assert.That(changed, Is.True);
     }
 
     // Helper methods to simulate the logic from RunTestsCommand

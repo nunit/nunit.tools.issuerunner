@@ -43,6 +43,7 @@ public class PackageUpdateServiceTests
         Assert.That(PackageFeed.Stable, Is.EqualTo(PackageFeed.Stable));
         Assert.That(PackageFeed.Beta, Is.EqualTo(PackageFeed.Beta));
         Assert.That(PackageFeed.Alpha, Is.EqualTo(PackageFeed.Alpha));
+        Assert.That(PackageFeed.Initial, Is.EqualTo(PackageFeed.Initial));
     }
 
     [Test]
@@ -51,6 +52,86 @@ public class PackageUpdateServiceTests
         Assert.That(PackageFeed.Stable.ToString(), Is.EqualTo("Stable"));
         Assert.That(PackageFeed.Beta.ToString(), Is.EqualTo("Beta"));
         Assert.That(PackageFeed.Alpha.ToString(), Is.EqualTo("Alpha"));
+        Assert.That(PackageFeed.Initial.ToString(), Is.EqualTo("Initial"));
+    }
+
+    [Test]
+    public async Task RestoreToInitialStateAsync_WhenInitialStateFileMissing_ReturnsFailure()
+    {
+        var issueDir = Path.Combine(Path.GetTempPath(), "IssueRunner_Initial_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(issueDir);
+        try
+        {
+            var projectPath = Path.Combine(issueDir, "Proj.csproj");
+            await File.WriteAllTextAsync(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup/><ItemGroup/></Project>");
+
+            var (success, _, error) = await _service!.RestoreToInitialStateAsync(issueDir, projectPath, CancellationToken.None);
+
+            Assert.That(success, Is.False);
+            Assert.That(error, Does.Contain("issue_initialstate.json not found"));
+        }
+        finally
+        {
+            if (Directory.Exists(issueDir))
+            {
+                Directory.Delete(issueDir, true);
+            }
+        }
+    }
+
+    [Test]
+    public async Task RestoreToInitialStateAsync_WhenProjectMatches_RestoresPackageVersions()
+    {
+        var issueDir = Path.Combine(Path.GetTempPath(), "IssueRunner_Initial_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(issueDir);
+        try
+        {
+            var initialState = new IssueInitialState
+            {
+                Number = 1,
+                CreatedAt = "2025-01-01T00:00:00Z",
+                Projects =
+                [
+                    new ProjectInitialState
+                    {
+                        ProjectPath = "Proj.csproj",
+                        TargetFrameworks = ["net10.0"],
+                        Packages =
+                        [
+                            new PackageInfo { Name = "NUnit", Version = "4.2.0" }
+                        ]
+                    }
+                ]
+            };
+            var initialStatePath = Path.Combine(issueDir, "issue_initialstate.json");
+            await File.WriteAllTextAsync(initialStatePath, System.Text.Json.JsonSerializer.Serialize(initialState, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+
+            var projectPath = Path.Combine(issueDir, "Proj.csproj");
+            var projectXml = """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                  <ItemGroup>
+                    <PackageReference Include="NUnit" Version="4.0.0" />
+                  </ItemGroup>
+                </Project>
+                """;
+            await File.WriteAllTextAsync(projectPath, projectXml);
+
+            var (success, output, error) = await _service!.RestoreToInitialStateAsync(issueDir, projectPath, CancellationToken.None);
+
+            Assert.That(success, Is.True);
+            Assert.That(output, Does.Contain("Restored to initial state"));
+            Assert.That(error, Is.Empty);
+            var content = await File.ReadAllTextAsync(projectPath);
+            Assert.That(content, Does.Contain("Version=\"4.2.0\""));
+        }
+        finally
+        {
+            if (Directory.Exists(issueDir))
+            {
+                Directory.Delete(issueDir, true);
+            }
+        }
     }
 
     [Test]

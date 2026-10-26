@@ -113,7 +113,10 @@ public enum PackageFeed
     Alpha,
     
     /// <summary>Local feed at C:\nuget with prerelease enabled.</summary>
-    Local
+    Local,
+
+    /// <summary>Initial state from issue_initialstate.json (nuget.org only).</summary>
+    Initial
 }
 
 

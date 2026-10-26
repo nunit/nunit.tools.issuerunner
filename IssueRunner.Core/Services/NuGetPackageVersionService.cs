@@ -26,6 +26,12 @@ public sealed class NuGetPackageVersionService : INuGetPackageVersionService
         PackageFeed feed,
         CancellationToken cancellationToken)
     {
+        // Initial feed uses issue_initialstate.json; no "latest" versions from NuGet.
+        if (feed == PackageFeed.Initial)
+        {
+            return new Dictionary<string, NuGetVersion>(StringComparer.OrdinalIgnoreCase);
+        }
+
         var includePrerelease = feed != PackageFeed.Stable;
 
         var sources = new List<string> { NugetOrg };

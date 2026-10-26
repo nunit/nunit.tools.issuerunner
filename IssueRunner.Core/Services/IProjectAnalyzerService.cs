@@ -23,6 +23,15 @@ public interface IProjectAnalyzerService
         string projectFilePath);
 
     /// <summary>
+    /// Parses csproj XML content (e.g. from git show) to extract target frameworks and package references.
+    /// Does not read packages.config.
+    /// </summary>
+    /// <param name="xmlContent">Raw XML content of the csproj.</param>
+    /// <returns>Tuple of (target frameworks, packages).</returns>
+    (List<string> TargetFrameworks, List<PackageInfo> Packages) ParseProjectContent(
+        string xmlContent);
+
+    /// <summary>
     /// Determines if a project is SDK-style or classic.
     /// </summary>
     /// <param name="projectFilePath">Path to the csproj file.</param>

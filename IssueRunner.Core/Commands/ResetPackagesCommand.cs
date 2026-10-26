@@ -6,25 +6,6 @@ using System.Xml.Linq;
 
 namespace IssueRunner.Commands;
 
-/// <summary>
-/// Full issue metadata including packages and frameworks (from issue folder).
-/// </summary>
-internal sealed class IssueMetadataFull
-{
-    [JsonPropertyName("number")]
-    public int Number { get; init; }
-
-    [JsonPropertyName("title")]
-    public string? Title { get; init; }
-
-    [JsonPropertyName("target_frameworks")]
-    public List<string>? TargetFrameworks { get; init; }
-
-    [JsonPropertyName("packages")]
-    public List<PackageInfo>? Packages { get; init; }
-}
-
-/// <summary>
 /// Command to reset package versions to metadata values.
 /// </summary>
 /// <remarks>
@@ -75,8 +56,8 @@ public sealed class ResetPackagesCommand(
                     continue;
                 }
 
-                var metadata = await LoadIssueMetadataAsync(folderPath, issueNumber, cancellationToken);
-                if (metadata == null)
+                var metadata = await LoadProjectInitialStateAsync(folderPath, issueNumber, cancellationToken);
+                if (metadata is null)
                 {
                     if (verbosity == LogVerbosity.Verbose)
                     {
@@ -99,27 +80,32 @@ public sealed class ResetPackagesCommand(
         }
     }
 
-    private async Task<IssueMetadataFull?> LoadIssueMetadataAsync(
+    private async Task<ProjectInitialState?> LoadProjectInitialStateAsync(
         string folderPath,
         int issueNumber,
         CancellationToken cancellationToken)
     {
-        var metadataPath = Path.Combine(folderPath, "issue_metadata.json");
+        var initialStatePath = Path.Combine(folderPath, "issue_initialstate.json");
 
-        if (!File.Exists(metadataPath))
+        if (!File.Exists(initialStatePath))
         {
             return null;
         }
 
         try
         {
-            var json = await File.ReadAllTextAsync(metadataPath, cancellationToken);
-            var list = JsonSerializer.Deserialize<List<IssueMetadataFull>>(json);
-            return list?.FirstOrDefault(m => m.Number == issueNumber);
+            var json = await File.ReadAllTextAsync(initialStatePath, cancellationToken);
+            var initialState = JsonSerializer.Deserialize<IssueInitialState>(json);
+            if (initialState is null || initialState.Number != issueNumber)
+            {
+                return null;
+            }
+
+            return initialState.Projects.FirstOrDefault();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "[{Issue}] Error loading metadata", issueNumber);
+            logger.LogError(ex, "[{Issue}] Error loading initial state", issueNumber);
             return null;
         }
     }
@@ -127,7 +113,7 @@ public sealed class ResetPackagesCommand(
     private async Task ResetIssuePackagesAsync(
         int issueNumber,
         string folderPath,
-        IssueMetadataFull metadata,
+        ProjectInitialState metadata,
         LogVerbosity verbosity,
         CancellationToken cancellationToken)
     {

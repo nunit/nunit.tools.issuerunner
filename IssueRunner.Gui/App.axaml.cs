@@ -105,11 +105,13 @@ public partial class App : Application
                 sp.GetRequiredService<ILogger<RepositoryStatusService>>()));
         services.AddSingleton<ITestRunOrchestrator, TestRunOrchestrator>();
         services.AddSingleton<ISyncCoordinator, SyncCoordinator>();
+        services.AddSingleton<IInitialStateService, InitialStateService>();
         services.AddSingleton<ReportGeneratorService>();
 
         // Commands
         services.AddTransient<SyncFromGitHubCommand>();
         services.AddTransient<SyncToFoldersCommand>();
+        services.AddTransient<UpdateNewIssuesCommand>();
         services.AddTransient<RunTestsCommand>();
         services.AddTransient<ResetPackagesCommand>();
         services.AddTransient<GenerateReportCommand>();

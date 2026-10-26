@@ -15,6 +15,7 @@ public class SyncToFoldersCommandTests
     private IEnvironmentService _environmentService = null!;
     private IIssueDiscoveryService _issueDiscovery = null!;
     private IProjectAnalyzerService _projectAnalyzer = null!;
+    private IInitialStateService _initialStateService = null!;
     private string _testRoot = null!;
     private string _dataDir = null!;
 
@@ -32,6 +33,9 @@ public class SyncToFoldersCommandTests
         
         _issueDiscovery = Substitute.For<IIssueDiscoveryService>();
         _projectAnalyzer = Substitute.For<IProjectAnalyzerService>();
+        _initialStateService = Substitute.For<IInitialStateService>();
+        _initialStateService.ProcessIssueAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new InitialStateIssueResult { Number = 0, Status = InitialStateStatus.Ok });
     }
 
     [TearDown]
@@ -47,10 +51,10 @@ public class SyncToFoldersCommandTests
     public async Task ExecuteAsync_ReturnsError_WhenMetadataFileNotFound()
     {
         // Arrange
-        var command = new SyncToFoldersCommand(_issueDiscovery, _projectAnalyzer, _logger, _environmentService);
+        var command = new SyncToFoldersCommand(_issueDiscovery, _projectAnalyzer, _initialStateService, _logger, _environmentService);
 
         // Act
-        var result = await command.ExecuteAsync(_testRoot, null, CancellationToken.None);
+        var result = await command.ExecuteAsync(_testRoot, null, false, CancellationToken.None);
 
         // Assert
         Assert.That(result, Is.EqualTo(1));
@@ -75,10 +79,10 @@ public class SyncToFoldersCommandTests
         _issueDiscovery.DiscoverIssueFolders().Returns(new Dictionary<int, string> { { 1, issue1Path } });
         _projectAnalyzer.FindProjectFiles(Arg.Any<string>()).Returns(new List<string> { Path.Combine(issue1Path, "Test.csproj") });
         
-        var command = new SyncToFoldersCommand(_issueDiscovery, _projectAnalyzer, _logger, _environmentService);
+        var command = new SyncToFoldersCommand(_issueDiscovery, _projectAnalyzer, _initialStateService, _logger, _environmentService);
 
         // Act
-        var result = await command.ExecuteAsync(_testRoot, null, CancellationToken.None);
+        var result = await command.ExecuteAsync(_testRoot, null, false, CancellationToken.None);
 
         // Assert
         Assert.That(result, Is.EqualTo(0));
@@ -99,10 +103,10 @@ public class SyncToFoldersCommandTests
         
         _issueDiscovery.DiscoverIssueFolders().Returns(new Dictionary<int, string> { { 1, issue1Path } });
         
-        var command = new SyncToFoldersCommand(_issueDiscovery, _projectAnalyzer, _logger, _environmentService);
+        var command = new SyncToFoldersCommand(_issueDiscovery, _projectAnalyzer, _initialStateService, _logger, _environmentService);
 
         // Act
-        var result = await command.ExecuteAsync(_testRoot, null, CancellationToken.None);
+        var result = await command.ExecuteAsync(_testRoot, null, false, CancellationToken.None);
 
         // Assert
         Assert.That(result, Is.EqualTo(0), "Should skip issues without metadata");

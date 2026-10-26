@@ -12,7 +12,7 @@
                BorderBrush="#D0D0D0"
                BorderThickness="0,0,0,1"
                Padding="12,10">
-            <Grid ColumnDefinitions="Auto,200,Auto,Auto,Auto,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,200,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Issue Numbers:" FontWeight="SemiBold" Foreground="#333" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <TextBox Grid.Column="1"
                         Text="{Binding IssueNumbers}"
@@ -107,6 +107,18 @@
                        x:Name="IssueListSyncFromGitHubButton"
                        Content="🔄 Sync from GitHub"
                        Command="{Binding SyncFromGitHubCommand}"
+                       IsEnabled="{Binding AreButtonsEnabled}"
+                       Background="#0078D4"
+                       Foreground="White"
+                       MinWidth="120"
+                       Margin="0,0,4,0"
+                       Padding="8,6"/>
+
+                <!-- Update New Issues Button -->
+                <Button Grid.Column="8"
+                       x:Name="IssueListUpdateNewIssuesButton"
+                       Content="Update New Issues"
+                       Command="{Binding UpdateNewIssuesCommand}"
                        IsEnabled="{Binding AreButtonsEnabled}"
                        Background="#0078D4"
                        Foreground="White"
